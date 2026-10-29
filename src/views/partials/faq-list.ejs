@@ -1,0 +1,8 @@
+<div class="faq">
+  <% items.forEach(function (item) { %>
+  <details class="faq__item" data-reveal>
+    <summary><span><%= item.q %></span><%- icon('chevron-down') %></summary>
+    <p><%= item.a %></p>
+  </details>
+  <% }) %>
+</div>

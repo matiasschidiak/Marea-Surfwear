@@ -1,0 +1,138 @@
+<%- include('_head') %>
+<div class="a-page-head">
+  <div>
+    <p class="a-crumb"><a href="/admin/productos">← Productos</a></p>
+    <h1><%= product ? 'Editar producto' : 'Nuevo producto' %></h1>
+  </div>
+  <% if (product) { %><a class="a-btn a-btn--ghost" href="/producto/<%= product.slug %>" target="_blank" rel="noopener">Ver en la tienda ↗</a><% } %>
+</div>
+
+<% if (Object.keys(errors).length) { %>
+<div class="a-flash a-flash--error" role="alert">Revisá los campos marcados en rojo.</div>
+<% } %>
+
+<form method="post" enctype="multipart/form-data" action="<%= product ? '/admin/productos/' + product.id : '/admin/productos' %>" class="a-form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <section class="a-card">
+    <h2>Datos del producto</h2>
+    <div class="a-field <%= errors.name ? 'has-error' : '' %>">
+      <label for="name">Nombre</label>
+      <input id="name" name="name" type="text" maxlength="120" required value="<%= form.name %>">
+      <% if (errors.name) { %><p class="a-err"><%= errors.name %></p><% } %>
+    </div>
+    <div class="a-field">
+      <label for="shortDescription">Descripción corta</label>
+      <input id="shortDescription" name="shortDescription" type="text" maxlength="200" value="<%= form.shortDescription %>">
+      <p class="a-hint">Una línea que aparece en la ficha y en Google.</p>
+    </div>
+    <div class="a-field">
+      <label for="description">Descripción completa</label>
+      <textarea id="description" name="description" rows="5" maxlength="4000"><%= form.description %></textarea>
+      <p class="a-hint">Separá los párrafos con una línea en blanco.</p>
+    </div>
+    <div class="a-row">
+      <div class="a-field">
+        <label for="material">Material / composición</label>
+        <input id="material" name="material" type="text" maxlength="200" value="<%= form.material %>" placeholder="Ej: 100% poliéster reciclado">
+      </div>
+      <div class="a-field">
+        <label for="color">Color</label>
+        <input id="color" name="color" type="text" maxlength="30" list="color-list" value="<%= form.color %>" placeholder="Ej: Negro, Azul, Verde" autocomplete="off">
+        <datalist id="color-list"><% colorSuggestions.forEach(function (c) { %><option value="<%= c %>"><% }) %></datalist>
+        <p class="a-hint">Se usa en el filtro de la tienda. Usá siempre el mismo nombre para el mismo color.</p>
+      </div>
+      <div class="a-field">
+        <label for="categoryId">Categoría</label>
+        <select id="categoryId" name="categoryId">
+          <option value="">Sin categoría</option>
+          <% categories.forEach(function (c) { %><option value="<%= c.id %>" <%= String(form.categoryId) === String(c.id) ? 'selected' : '' %>><%= c.name %></option><% }) %>
+        </select>
+        <input type="text" name="newCategory" maxlength="60" placeholder="…o escribí una categoría nueva" value="<%= form.newCategory %>" class="a-mt">
+      </div>
+    </div>
+    <div class="a-field">
+      <label for="features">Características</label>
+      <textarea id="features" name="features" rows="5" placeholder="Una característica por línea"><%= form.features %></textarea>
+      <p class="a-hint">Una por línea (máx. 15). Ej: "Secado ultra rápido".</p>
+    </div>
+    <div class="a-row">
+      <div class="a-field <%= errors.price ? 'has-error' : '' %>">
+        <label for="price">Precio (ARS)</label>
+        <input id="price" name="price" type="number" inputmode="numeric" min="0" step="1" required value="<%= form.price %>">
+        <% if (errors.price) { %><p class="a-err"><%= errors.price %></p><% } %>
+      </div>
+      <div class="a-field <%= errors.comparePrice ? 'has-error' : '' %>">
+        <label for="comparePrice">Precio anterior <span class="a-opt">(opcional, tachado)</span></label>
+        <input id="comparePrice" name="comparePrice" type="number" inputmode="numeric" min="0" step="1" value="<%= form.comparePrice %>">
+        <% if (errors.comparePrice) { %><p class="a-err"><%= errors.comparePrice %></p><% } %>
+      </div>
+    </div>
+    <div class="a-checks">
+      <label class="a-check"><input type="checkbox" name="active" value="1" <%= form.active ? 'checked' : '' %>> <span><strong>Activo</strong><small>Se muestra en la tienda</small></span></label>
+      <label class="a-check"><input type="checkbox" name="featured" value="1" <%= form.featured ? 'checked' : '' %>> <span><strong>Destacado</strong><small>Aparece en la sección de destacados</small></span></label>
+    </div>
+  </section>
+
+  <section class="a-card">
+    <h2>Talles y stock</h2>
+    <p class="a-muted">Tildá los talles que ofrece este producto y cargá las unidades disponibles de cada uno. Con stock 0 el talle se muestra como "Agotado".</p>
+    <div class="a-size-rows" data-size-rows>
+      <% sizeRows.forEach(function (r) { %>
+      <div class="a-size-row <%= errors['stock_' + r.id] ? 'has-error' : '' %>">
+        <label class="a-check a-check--sm"><input type="checkbox" name="offer_<%= r.id %>" value="1" <%= r.offered ? 'checked' : '' %> data-size-offer> <strong><%= r.name %></strong></label>
+        <div>
+          <label class="sr-only" for="stock_<%= r.id %>">Stock talle <%= r.name %></label>
+          <input id="stock_<%= r.id %>" name="stock_<%= r.id %>" type="number" min="0" max="100000" step="1" inputmode="numeric" placeholder="Stock" value="<%= r.stock %>" <%= r.offered ? '' : 'disabled' %> data-size-stock>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+    <div class="a-field a-mt">
+      <label for="newSizes">Agregar talles nuevos <span class="a-opt">(opcional)</span></label>
+      <input id="newSizes" name="newSizes" type="text" maxlength="80" placeholder="Ej: XXXL, 38, Único" value="<%= form.newSizes %>">
+      <p class="a-hint">Separados por coma. Se crean con stock 0 y los ajustás después de guardar.</p>
+    </div>
+  </section>
+
+  <section class="a-card">
+    <h2>Imágenes</h2>
+    <p class="a-muted">La primera es la principal (la de menor número de orden). Recomendado: fotos verticales 4:5, de al menos 1200 px de ancho. Se optimizan solas (WebP, varios tamaños). Máx. 8 MB por foto.</p>
+    <% if (product && product.images.length) { %>
+    <ul class="a-images">
+      <% product.images.forEach(function (im, i) { %>
+      <li class="a-image">
+        <img src="<%= im.url %>" alt="" width="120" height="150" loading="lazy">
+        <div class="a-image__fields">
+          <label>Orden <input type="number" name="img_order_<%= im.id %>" value="<%= i + 1 %>" min="0" max="999"></label>
+          <label>Texto alternativo <input type="text" name="img_alt_<%= im.id %>" value="<%= im.alt %>" maxlength="160" placeholder="Describí la foto"></label>
+          <label class="a-check a-check--sm a-check--danger"><input type="checkbox" name="img_delete_<%= im.id %>" value="1"> Eliminar</label>
+        </div>
+      </li>
+      <% }) %>
+    </ul>
+    <% } %>
+    <div class="a-field">
+      <label for="images">Subir imágenes nuevas</label>
+      <input id="images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple data-preview-input>
+      <div class="a-previews" data-previews></div>
+    </div>
+  </section>
+
+  <div class="a-savebar">
+    <button class="a-btn a-btn--primary a-btn--lg" type="submit">Guardar producto</button>
+    <a class="a-btn a-btn--ghost a-btn--lg" href="/admin/productos">Cancelar</a>
+  </div>
+</form>
+
+<% if (product) { %>
+<section class="a-card a-danger">
+  <h2>Eliminar producto</h2>
+  <p class="a-muted">Se borra el producto, sus talles, stock e imágenes. Los pedidos anteriores conservan su detalle. Si solo querés ocultarlo, desactivalo.</p>
+  <form method="post" action="/admin/productos/<%= product.id %>/eliminar" data-confirm="¿Eliminar &quot;<%= product.name %>&quot; definitivamente? Esta acción no se puede deshacer.">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <button class="a-btn a-btn--danger" type="submit">Eliminar producto</button>
+  </form>
+</section>
+<% } %>
+<%- include('_foot') %>

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title><%= title %> · Panel MAREA</title>
+  <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=DM+Sans:wght@400..700&display=swap">
+  <link rel="stylesheet" href="<%= asset('/css/admin.css') %>">
+</head>
+<body class="admin">
+<%- include('../partials/icons') %>
+<div class="a-shell">
+  <aside class="a-side">
+    <div class="a-brand">
+      <a href="/admin"><%- icon('wave', 'a-brand__mark') %><span>MAREA</span><small>Panel</small></a>
+    </div>
+    <nav class="a-nav" aria-label="Panel">
+      <a href="/admin" <%- adminNav === '/' ? 'aria-current="page"' : '' %>>Resumen</a>
+      <a href="/admin/pedidos" <%- adminNav.startsWith('/pedidos') ? 'aria-current="page"' : '' %>>Pedidos</a>
+      <a href="/admin/productos" <%- adminNav.startsWith('/productos') ? 'aria-current="page"' : '' %>>Productos</a>
+      <a href="/admin/stock" <%- adminNav.startsWith('/stock') ? 'aria-current="page"' : '' %>>Stock</a>
+      <a href="/admin/configuracion" <%- adminNav.startsWith('/configuracion') ? 'aria-current="page"' : '' %>>Configuración</a>
+      <a href="/admin/cuenta" <%- adminNav.startsWith('/cuenta') ? 'aria-current="page"' : '' %>>Mi cuenta</a>
+    </nav>
+    <div class="a-side__foot">
+      <a href="/" target="_blank" rel="noopener">Ver tienda ↗</a>
+      <form method="post" action="/admin/logout">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="a-link"><%= admin.email %> · Salir</button>
+      </form>
+    </div>
+  </aside>
+
+  <main class="a-main" id="main">
+    <% if (flash) { %><div class="a-flash a-flash--<%= flash.type %>" role="status"><%= flash.text %></div><% } %>

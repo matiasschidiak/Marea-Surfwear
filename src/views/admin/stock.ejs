@@ -1,0 +1,33 @@
+<%- include('_head') %>
+<div class="a-page-head"><h1>Stock</h1></div>
+<p class="a-muted">Editá las unidades de cada talle y guardá una sola vez. En <span class="a-size is-low">amarillo</span> los talles con <%= threshold %> o menos unidades; en <span class="a-size is-out">rojo</span> los agotados.</p>
+
+<% if (!list.length) { %>
+<div class="a-card"><p class="a-muted">No hay productos todavía. <a href="/admin/productos/nuevo">Crear el primero</a>.</p></div>
+<% } else { %>
+<form method="post" action="/admin/stock" class="a-form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+  <% list.forEach(function (p) { %>
+  <section class="a-card a-stock">
+    <div class="a-card__head">
+      <h2><a href="/admin/productos/<%= p.id %>"><%= p.name %></a> <% if (!p.active) { %><span class="a-pill a-pill--cancelado">Inactivo</span><% } %></h2>
+      <span class="a-muted">Total: <%= p.totalStock %> u.</span>
+    </div>
+    <% if (!p.variants.length) { %>
+    <p class="a-muted">Este producto no tiene talles. <a href="/admin/productos/<%= p.id %>">Agregarlos</a>.</p>
+    <% } else { %>
+    <div class="a-stock__grid">
+      <% p.variants.forEach(function (v) { %>
+      <label class="a-stock__cell <%= v.stock === 0 ? 'is-out' : (v.stock <= threshold ? 'is-low' : '') %>">
+        <span><%= v.size %></span>
+        <input type="number" name="stock_<%= v.id %>" value="<%= v.stock %>" min="0" max="100000" step="1" inputmode="numeric" aria-label="Stock talle <%= v.size %> de <%= p.name %>">
+      </label>
+      <% }) %>
+    </div>
+    <% } %>
+  </section>
+  <% }) %>
+  <div class="a-savebar"><button class="a-btn a-btn--primary a-btn--lg" type="submit">Guardar stock</button></div>
+</form>
+<% } %>
+<%- include('_foot') %>

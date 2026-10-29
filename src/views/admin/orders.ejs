@@ -1,0 +1,46 @@
+<%- include('_head') %>
+<div class="a-page-head"><h1>Pedidos</h1></div>
+
+<nav class="a-tabs" aria-label="Filtrar por estado">
+  <a href="/admin/pedidos<%= q ? '?q=' + encodeURIComponent(q) : '' %>" class="<%= !status ? 'is-active' : '' %>">Todos</a>
+  <% statuses.forEach(function (s) { %>
+  <a href="/admin/pedidos?estado=<%= s.value %><%= q ? '&q=' + encodeURIComponent(q) : '' %>" class="<%= status === s.value ? 'is-active' : '' %>"><%= s.label %> <span><%= counts[s.value] || 0 %></span></a>
+  <% }) %>
+</nav>
+
+<form class="a-search" method="get" action="/admin/pedidos">
+  <% if (status) { %><input type="hidden" name="estado" value="<%= status %>"><% } %>
+  <input type="search" name="q" value="<%= q %>" placeholder="Buscar por código, nombre o teléfono" aria-label="Buscar pedidos">
+  <button class="a-btn a-btn--primary" type="submit">Buscar</button>
+  <% if (q) { %><a class="a-btn a-btn--ghost" href="/admin/pedidos<%= status ? '?estado=' + status : '' %>">Limpiar</a><% } %>
+</form>
+
+<% if (!rows.length) { %>
+<div class="a-card"><p class="a-muted">No hay pedidos para mostrar.</p></div>
+<% } else { %>
+<div class="a-table-wrap">
+<table class="a-table a-table--stack">
+  <thead><tr><th>Pedido</th><th>Fecha</th><th>Cliente</th><th>Unidades</th><th>Total</th><th>Estado</th></tr></thead>
+  <tbody>
+  <% rows.forEach(function (o) { %>
+  <tr>
+    <td data-label="Pedido"><a href="/admin/pedidos/<%= o.id %>"><strong><%= o.code %></strong></a></td>
+    <td data-label="Fecha"><%= dateTime(o.created_at) %></td>
+    <td data-label="Cliente"><%= o.customer_first_name %> <%= o.customer_last_name %><div class="a-muted"><%= phonePretty(o.customer_phone) %></div></td>
+    <td data-label="Unidades"><%= o.units %></td>
+    <td data-label="Total"><strong><%= money(o.total) %></strong></td>
+    <td data-label="Estado"><span class="a-pill a-pill--<%= o.status %>"><%= statusLabel(o.status) %></span></td>
+  </tr>
+  <% }) %>
+  </tbody>
+</table>
+</div>
+<% if (pages > 1) { %>
+<nav class="a-pager" aria-label="Paginación">
+  <% if (page > 1) { %><a class="a-btn a-btn--sm a-btn--ghost" href="?<%= status ? 'estado=' + status + '&' : '' %><%= q ? 'q=' + encodeURIComponent(q) + '&' : '' %>p=<%= page - 1 %>">← Anterior</a><% } %>
+  <span>Página <%= page %> de <%= pages %> · <%= total %> pedidos</span>
+  <% if (page < pages) { %><a class="a-btn a-btn--sm a-btn--ghost" href="?<%= status ? 'estado=' + status + '&' : '' %><%= q ? 'q=' + encodeURIComponent(q) + '&' : '' %>p=<%= page + 1 %>">Siguiente →</a><% } %>
+</nav>
+<% } %>
+<% } %>
+<%- include('_foot') %>

@@ -1,0 +1,35 @@
+<%
+  const p = product;
+  const eager = locals.eager || false;
+  const offered = p.variants;
+%>
+<article class="card<%= p.soldOut ? ' card--soldout' : '' %>" data-reveal>
+  <div class="card__media">
+    <a href="/producto/<%= p.slug %>" tabindex="-1" aria-hidden="true">
+      <%- productImg(p, 0, { sizes: '(min-width: 1100px) 25vw, (min-width: 700px) 33vw, 50vw', loading: eager ? 'eager' : 'lazy' }) %>
+      <% if (p.images[1]) { %><span class="card__alt"><%- productImg(p, 1, { sizes: '(min-width: 1100px) 25vw, 33vw' }) %></span><% } %>
+    </a>
+    <div class="badges">
+      <% if (p.soldOut) { %><span class="badge badge--out">Sin stock</span>
+      <% } else if (p.lowStock) { %><span class="badge badge--low">Últimas unidades</span>
+      <% } else if (p.featured) { %><span class="badge badge--feat">Destacado</span><% } %>
+    </div>
+  </div>
+  <div class="card__body">
+    <h3 class="card__title"><a class="card__link" href="/producto/<%= p.slug %>"><%= p.name %></a></h3>
+    <p class="card__price">
+      <%= money(p.price) %>
+      <% if (p.comparePrice) { %><s><%= money(p.comparePrice) %></s><% } %>
+    </p>
+    <ul class="sizes" aria-label="Talles">
+      <% offered.forEach(function (v) { %>
+      <li class="<%= v.stock === 0 ? 'is-out' : '' %>" title="<%= v.stock === 0 ? 'Agotado' : 'Disponible' %>"><%= v.size %><% if (v.stock === 0) { %><span class="sr-only"> (agotado)</span><% } %></li>
+      <% }) %>
+    </ul>
+    <p class="stock-flag <%= p.soldOut ? 'is-out' : (p.lowStock ? 'is-low' : 'is-ok') %>">
+      <span class="dot" aria-hidden="true"></span>
+      <%= p.soldOut ? 'Sin stock' : (p.lowStock ? 'Últimas unidades' : 'Disponible') %>
+    </p>
+    <a class="btn btn--ghost btn--sm card__cta" href="/producto/<%= p.slug %>">Ver producto</a>
+  </div>
+</article>

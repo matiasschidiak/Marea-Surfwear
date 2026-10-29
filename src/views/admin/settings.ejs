@@ -1,0 +1,56 @@
+<%- include('_head') %>
+<div class="a-page-head"><h1>Configuración</h1></div>
+<form method="post" action="/admin/configuracion" class="a-form">
+  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+  <section class="a-card">
+    <h2>WhatsApp y contacto</h2>
+    <div class="a-field <%= errors.whatsapp_number ? 'has-error' : '' %>">
+      <label for="whatsapp_number">Número de WhatsApp de la tienda</label>
+      <input id="whatsapp_number" name="whatsapp_number" type="text" inputmode="numeric" value="<%= values.whatsapp_number %>" required>
+      <p class="a-hint">Con código de país y sin signos ni espacios. Actual: <strong><%= whatsappPretty(values.whatsapp_number) %></strong>. Los pedidos llegan a este número. Si el chat no se abre, probá con el 9 después del 54 (ej: 5492994154002).</p>
+      <% if (errors.whatsapp_number) { %><p class="a-err"><%= errors.whatsapp_number %></p><% } %>
+    </div>
+    <div class="a-row">
+      <div class="a-field <%= errors.contact_email ? 'has-error' : '' %>">
+        <label for="contact_email">Email de contacto <span class="a-opt">(opcional)</span></label>
+        <input id="contact_email" name="contact_email" type="email" value="<%= values.contact_email %>">
+        <% if (errors.contact_email) { %><p class="a-err"><%= errors.contact_email %></p><% } %>
+      </div>
+      <div class="a-field">
+        <label for="store_address">Ubicación</label>
+        <input id="store_address" name="store_address" type="text" maxlength="160" value="<%= values.store_address %>">
+      </div>
+    </div>
+    <div class="a-field">
+      <label for="announcement">Mensaje de la barra superior</label>
+      <input id="announcement" name="announcement" type="text" maxlength="140" value="<%= values.announcement %>">
+      <p class="a-hint">Dejalo vacío para ocultar la barra.</p>
+    </div>
+  </section>
+
+  <section class="a-card">
+    <h2>Redes sociales</h2>
+    <p class="a-muted">Los íconos aparecen en el pie de página y en Contacto solo si cargás el enlace.</p>
+    <% [['instagram_url', 'Instagram', 'https://www.instagram.com/tumarca'], ['tiktok_url', 'TikTok', 'https://www.tiktok.com/@tumarca'], ['facebook_url', 'Facebook', 'https://www.facebook.com/tumarca']].forEach(function (s) { %>
+    <div class="a-field <%= errors[s[0]] ? 'has-error' : '' %>">
+      <label for="<%= s[0] %>"><%= s[1] %></label>
+      <input id="<%= s[0] %>" name="<%= s[0] %>" type="url" value="<%= values[s[0]] %>" placeholder="<%= s[2] %>">
+      <% if (errors[s[0]]) { %><p class="a-err"><%= errors[s[0]] %></p><% } %>
+    </div>
+    <% }) %>
+  </section>
+
+  <section class="a-card">
+    <h2>Stock</h2>
+    <div class="a-field <%= errors.low_stock_threshold ? 'has-error' : '' %>">
+      <label for="low_stock_threshold">Alerta de stock bajo (unidades)</label>
+      <input id="low_stock_threshold" name="low_stock_threshold" type="number" min="0" max="100" value="<%= values.low_stock_threshold %>" required>
+      <p class="a-hint">Un talle con esta cantidad o menos se marca como "Últimas unidades" y aparece en las alertas del resumen.</p>
+      <% if (errors.low_stock_threshold) { %><p class="a-err"><%= errors.low_stock_threshold %></p><% } %>
+    </div>
+  </section>
+
+  <div class="a-savebar"><button class="a-btn a-btn--primary a-btn--lg" type="submit">Guardar configuración</button></div>
+</form>
+<%- include('_foot') %>

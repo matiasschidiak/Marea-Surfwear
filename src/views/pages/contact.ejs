@@ -1,0 +1,44 @@
+<%- include('../partials/head', { bodyClass: 'page-info' }) %>
+<%- include('../partials/header') %>
+<main id="main">
+  <div class="container container--narrow">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><ol><li><a href="/">Inicio</a></li><li aria-current="page">Contacto</li></ol></nav>
+    <h1 class="page-title">Contacto</h1>
+    <p class="lead">Escribinos por WhatsApp: es la forma más rápida. Te respondemos sobre talles, stock, envíos y pedidos.</p>
+
+    <div class="contact">
+      <form class="form card-box" data-contact-form novalidate>
+        <h2>Mandanos tu consulta</h2>
+        <div class="field">
+          <label for="c-name">Tu nombre</label>
+          <input id="c-name" name="name" type="text" maxlength="60" autocomplete="given-name" required>
+          <p class="field-error" data-error-for="name" hidden></p>
+        </div>
+        <div class="field">
+          <label for="c-msg">Mensaje</label>
+          <textarea id="c-msg" name="message" rows="5" maxlength="600" required placeholder="Contanos en qué te podemos ayudar"></textarea>
+          <p class="field-error" data-error-for="message" hidden></p>
+        </div>
+        <button class="btn btn--wa btn--lg btn--block" type="submit"><%- icon('whatsapp') %> Enviar por WhatsApp</button>
+        <p class="field-hint">Se abre WhatsApp con tu mensaje listo para enviar.</p>
+      </form>
+
+      <aside class="contact__info">
+        <ul class="contact__list">
+          <li><%- icon('whatsapp') %><span><strong>WhatsApp</strong><a href="<%= waLink() %>" target="_blank" rel="noopener"><%= whatsappPretty(waNumber) %></a></span></li>
+          <% if (store.contact_email) { %><li><%- icon('mail') %><span><strong>Email</strong><a href="mailto:<%= store.contact_email %>"><%= store.contact_email %></a></span></li><% } %>
+          <% if (store.store_address) { %><li><%- icon('pin') %><span><strong>Ubicación</strong><%= store.store_address %></span></li><% } %>
+          <li><%- icon('sun') %><span><strong>Horarios de atención</strong>Lunes a sábado, de 9 a 20 h</span></li>
+        </ul>
+        <% const socials = [['instagram_url', 'instagram', 'Instagram'], ['tiktok_url', 'tiktok', 'TikTok'], ['facebook_url', 'facebook', 'Facebook']].filter(function (s) { return store[s[0]]; }); %>
+        <% if (socials.length) { %>
+        <p class="contact__social-title">Seguinos</p>
+        <ul class="social social--dark">
+          <% socials.forEach(function (s) { %><li><a href="<%= store[s[0]] %>" target="_blank" rel="noopener me" aria-label="<%= s[2] %>"><%- icon(s[1]) %></a></li><% }) %>
+        </ul>
+        <% } %>
+      </aside>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

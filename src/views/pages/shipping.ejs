@@ -1,0 +1,39 @@
+<%- include('../partials/head', { bodyClass: 'page-info' }) %>
+<%- include('../partials/header') %>
+<main id="main">
+  <div class="container container--narrow">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><ol><li><a href="/">Inicio</a></li><li aria-current="page">Envíos y pagos</li></ol></nav>
+    <article class="prose prose--page">
+      <h1>Envíos y formas de pago</h1>
+      <p class="lead">Compraste por la web, cerramos todo por WhatsApp. Así funciona.</p>
+
+      <h2>Envíos a todo el país</h2>
+      <p>Enviamos a todas las provincias de Argentina por correo o mensajería. El costo y el plazo dependen del destino y del peso del pedido. <strong>Te los confirmamos por WhatsApp antes de que pagues</strong></p>
+      <ul>
+        <li>Preparación del pedido: 24 a 48 horas hábiles desde que se acredita el pago.</li>
+        <li>Te enviamos el código de seguimiento apenas despachamos.</li>
+        <li>Si el envío es a domicilio, necesitamos calle, número, ciudad, provincia y código postal completos.</li>
+      </ul>
+
+      <h2>Para Neuquinos</h2>
+      <p>Si estás en Neuquén, Te enviamos tu pedido a tu domicilio. El precio varia segun la zona</p>
+
+      <h2>Medios de pago</h2>
+      <ul>
+        <li><strong>Transferencia bancaria:</strong> te pasamos el alias y el CBU por WhatsApp.</li>
+        <li><strong>Mercado Pago:</strong> te enviamos un link de pago.</li>
+        <li><strong>Efectivo:</strong> solo disponible con punto de encuentro en persona.</li>
+      </ul>
+      <p>Tu pedido queda reservado desde que lo confirmás en la web. Para despacharlo necesitamos que se acredite el pago.</p>
+
+      <h2>¿Cómo sigue después de confirmar?</h2>
+      <ol>
+        <li>Se abre WhatsApp con tu pedido ya escrito. Enviá el mensaje.</li>
+        <li>Te respondemos para confirmar el stock, el costo de envío y el medio de pago.</li>
+        <li>Pagás, preparamos tu pedido y lo despachamos.</li>
+      </ol>
+      <p><a class="btn btn--wa" href="<%= waLink('Hola! Tengo una consulta sobre envíos.') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Consultar por mi envío</a></p>
+    </article>
+  </div>
+</main>
+<%- include('../partials/footer') %>

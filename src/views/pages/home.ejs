@@ -1,0 +1,230 @@
+<%
+  const jsonLdBlocks = [
+    { '@context': 'https://schema.org', '@type': 'Store', name: store.brand_name + ' ' + store.brand_tagline, url: siteUrl,
+      image: siteUrl + '/img/og-default.jpg', telephone: '+' + waNumber, address: { '@type': 'PostalAddress', addressCountry: 'AR', streetAddress: store.store_address },
+      sameAs: [store.instagram_url, store.tiktok_url, store.facebook_url].filter(Boolean) },
+    { '@context': 'https://schema.org', '@type': 'WebSite', name: store.brand_name + ' ' + store.brand_tagline, url: siteUrl },
+  ];
+%>
+<%- include('../partials/head', { jsonLdBlocks: jsonLdBlocks, bodyClass: 'page-home' }) %>
+<%- include('../partials/header') %>
+
+<main id="main">
+  <!-- HERO -->
+  <section class="hero" aria-labelledby="hero-title">
+    <img class="hero__bg" src="/img/hero.svg" alt="" width="1600" height="1000" fetchpriority="high" decoding="async">
+    <div class="hero__shade" aria-hidden="true"></div>
+    <div class="container hero__inner">
+      <div class="hero__copy">
+        <p class="eyebrow"><%- icon('sun') %> Colección verano</p>
+        <h1 id="hero-title"><%= store.brand_name %> <span><%= store.brand_tagline %></span></h1>
+        <p class="hero__lead">Mallas para quienes viven con los pies en el agua. Livianas, de secado rápido y hechas para durar más que el verano.</p>
+        <div class="hero__cta">
+          <a class="btn btn--accent btn--lg" href="#catalogo">Ver mallas <%- icon('arrow-right') %></a>
+          <a class="btn btn--glass btn--lg" href="<%= waLink() %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Hablar con nosotros</a>
+        </div>
+      </div>
+      <% if (featured[0] && featured[0].images[0]) { %>
+      <a class="hero__card" href="/producto/<%= featured[0].slug %>" aria-label="Ver <%= featured[0].name %>">
+        <%- productImg(featured[0], 0, { sizes: '(min-width: 900px) 320px, 0px', priority: true }) %>
+        <span class="hero__card-info"><strong><%= featured[0].name %></strong><span><%= money(featured[0].price) %></span></span>
+      </a>
+      <% } %>
+    </div>
+  </section>
+
+  <!-- BENEFICIOS -->
+  <section class="perks" aria-label="Beneficios">
+    <ul class="container perks__list">
+      <li><%- icon('truck') %><span><strong>Envíos a todo el país</strong><small>Retiro gratis en Neuquén</small></span></li>
+      <li><%- icon('chat') %><span><strong>Pedí por WhatsApp</strong><small>Atención personalizada</small></span></li>
+      <li><%- icon('swap') %><span><strong>Cambios sin vueltas</strong><small>Si no te calza, lo resolvemos</small></span></li>
+      <li><%- icon('card') %><span><strong>Pagá como prefieras</strong><small>Transferencia, MP o efectivo</small></span></li>
+    </ul>
+  </section>
+
+  <% if (featured.length > 1) { %>
+  <!-- DESTACADOS -->
+  <section class="section" id="destacados" aria-labelledby="feat-title">
+    <div class="container">
+      <header class="section__head" data-reveal>
+        <p class="eyebrow">Lo más pedido</p>
+        <h2 id="feat-title">Productos destacados</h2>
+      </header>
+      <div class="grid--feat" style="--n: <%= Math.min(featured.length, 4) %>">
+        <% featured.forEach(function (product) { %><%- include('../partials/product-card', { product: product }) %><% }) %>
+      </div>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- CATÁLOGO -->
+  <section class="section section--sand" id="catalogo" aria-labelledby="cat-title">
+    <div class="container">
+      <header class="section__head" data-reveal>
+        <p class="eyebrow">Catálogo</p>
+        <h2 id="cat-title">Todas las mallas</h2>
+      </header>
+
+      <%
+        const activeCount = filters.sizes.length + filters.colors.length + (filters.min !== null || filters.max !== null ? 1 : 0) + (filters.inStock ? 1 : 0) + (filters.q ? 1 : 0);
+        const sortOptions = [['destacados', 'Destacados'], ['nuevos', 'Más nuevos'], ['precio-asc', 'Precio: menor a mayor'], ['precio-desc', 'Precio: mayor a menor'], ['nombre', 'Nombre (A-Z)']];
+        const colorsSel = filters.colors.map(function (c) { return c.toLowerCase(); });
+      %>
+      <div class="catalog">
+        <!-- Filtros: columna a la izquierda en computadora, panel desplegable en celular -->
+        <form id="filters-form" class="catalog__filters" method="get" action="/#catalogo" data-filters>
+          <div class="filters-panel" id="filters-panel" data-filters-panel>
+            <div class="filters-panel__head">
+              <button class="icon-btn" type="button" aria-label="Cerrar filtros" data-filters-close><%- icon('chevron-left') %></button>
+              <h3>Filtrar por:</h3>
+            </div>
+
+            <div class="filters-panel__body">
+              <div class="fgroup">
+                <label class="search" for="f-q">
+                  <span class="sr-only">Buscar productos</span>
+                  <%- icon('search') %>
+                  <input id="f-q" type="search" name="q" value="<%= filters.q %>" placeholder="Buscar..." maxlength="60" autocomplete="off" enterkeyhint="search">
+                </label>
+              </div>
+
+              <% if (facets.colors.length) { %>
+              <fieldset class="fgroup">
+                <legend>Color</legend>
+                <% facets.colors.forEach(function (c) { %>
+                <label class="fcheck">
+                  <input type="checkbox" name="color" value="<%= c.name %>" <%= colorsSel.includes(c.name.toLowerCase()) ? 'checked' : '' %>>
+                  <span><%= c.name %> <small>(<%= c.count %>)</small></span>
+                </label>
+                <% }) %>
+              </fieldset>
+              <% } %>
+
+              <% if (facets.sizes.length) { %>
+              <fieldset class="fgroup">
+                <legend>Talle</legend>
+                <% facets.sizes.forEach(function (s) { %>
+                <label class="fcheck">
+                  <input type="checkbox" name="talle" value="<%= s.name %>" <%= filters.sizes.includes(s.name.toUpperCase()) ? 'checked' : '' %>>
+                  <span><%= s.name %> <small>(<%= s.count %>)</small></span>
+                </label>
+                <% }) %>
+              </fieldset>
+              <% } %>
+
+              <fieldset class="fgroup">
+                <legend>Precio</legend>
+                <div class="price-range">
+                  <label>Desde<input type="number" name="min" inputmode="numeric" min="0" step="1000" placeholder="0" value="<%= filters.min ?? '' %>"></label>
+                  <label>Hasta<input type="number" name="max" inputmode="numeric" min="0" step="1000" placeholder="Sin límite" value="<%= filters.max ?? '' %>"></label>
+                </div>
+              </fieldset>
+
+              <div class="fgroup">
+                <label class="fcheck">
+                  <input type="checkbox" name="stock" value="1" <%= filters.inStock ? 'checked' : '' %>>
+                  <span>Solo con stock</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="filters-panel__foot">
+              <button class="btn btn--primary btn--block filters-panel__apply" type="submit">Ver <%= products.length %> producto<%= products.length === 1 ? '' : 's' %></button>
+              <% if (filters.active) { %><a class="filters-clear" href="/#catalogo">Limpiar filtros</a><% } %>
+            </div>
+          </div>
+        </form>
+
+        <div class="catalog__main">
+          <div class="catalog__bar">
+            <div class="sortbox">
+              <label for="f-orden">Ordenar por</label>
+              <select id="f-orden" name="orden" form="filters-form" data-sort>
+                <% sortOptions.forEach(function (o) { %><option value="<%= o[0] %>" <%= filters.sort === o[0] ? 'selected' : '' %>><%= o[1] %></option><% }) %>
+              </select>
+            </div>
+            <button class="catalog__filter-btn" type="button" aria-haspopup="dialog" aria-controls="filters-panel" data-filters-open>
+              Filtrar<% if (activeCount) { %> <span class="count-dot" aria-label="<%= activeCount %> filtros activos"><%= activeCount %></span><% } %> <%- icon('chevron-right') %>
+            </button>
+          </div>
+
+          <div data-results-area>
+          <p class="results" aria-live="polite">
+            <%= products.length %> producto<%= products.length === 1 ? '' : 's' %><% if (filters.active) { %> encontrado<%= products.length === 1 ? '' : 's' %><% } %>
+          </p>
+
+          <% if (products.length) { %>
+          <div class="grid grid--catalog">
+            <% products.forEach(function (product, i) { %><%- include('../partials/product-card', { product: product, eager: i < 2 }) %><% }) %>
+          </div>
+          <% } else { %>
+          <div class="empty">
+            <%- icon('search') %>
+            <h3>No encontramos mallas con esos filtros</h3>
+            <p>Probá con otro talle o color, ampliá el rango de precio o limpiá los filtros.</p>
+            <a class="btn btn--primary" href="/#catalogo">Ver todas las mallas</a>
+          </div>
+          <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CÓMO COMPRAR -->
+  <section class="section" aria-labelledby="how-title">
+    <div class="container">
+      <header class="section__head" data-reveal>
+        <p class="eyebrow">Simple y rápido</p>
+        <h2 id="how-title">Comprá en 3 pasos</h2>
+      </header>
+      <ol class="steps">
+        <li data-reveal><span class="steps__n">1</span><h3>Elegí tu malla</h3><p>Mirá las fotos, elegí el talle y fijate el stock que queda.</p></li>
+        <li data-reveal><span class="steps__n">2</span><h3>Armá tu pedido</h3><p>Sumá lo que quieras al carrito y completá tus datos de entrega.</p></li>
+        <li data-reveal><span class="steps__n">3</span><h3>Confirmá por WhatsApp</h3><p>Te abrimos el chat con el pedido ya escrito. Coordinamos pago y envío.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ENVÍOS / CAMBIOS -->
+  <section class="section section--ocean" aria-labelledby="ship-title">
+    <div class="container info-cards">
+      <article class="info-card" data-reveal>
+        <%- icon('truck') %>
+        <h2 id="ship-title">Envíos a todo el país</h2>
+        <p>Despachamos a todas las provincias. El costo y el plazo dependen del destino y te los confirmamos antes de pagar. En Neuquén, retiro en persona sin cargo.</p>
+        <a class="link-arrow" href="/envios">Más información sobre envíos <%- icon('arrow-right') %></a>
+      </article>
+      <article class="info-card" data-reveal>
+        <%- icon('swap') %>
+        <h2>Cambios y devoluciones</h2>
+        <p>Si el talle no es el indicado, te lo cambiamos. Solo pedimos que la prenda esté sin uso y con sus etiquetas.</p>
+        <a class="link-arrow" href="/cambios-y-devoluciones">Ver política de cambios <%- icon('arrow-right') %></a>
+      </article>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section class="section" aria-labelledby="faq-title">
+    <div class="container container--narrow">
+      <header class="section__head" data-reveal>
+        <p class="eyebrow">Dudas</p>
+        <h2 id="faq-title">Preguntas frecuentes</h2>
+      </header>
+      <%- include('../partials/faq-list', { items: faq.filter(function (f) { return f.home; }) }) %>
+      <p class="center"><a class="link-arrow" href="/preguntas-frecuentes">Ver todas las preguntas <%- icon('arrow-right') %></a></p>
+    </div>
+  </section>
+
+  <!-- CTA FINAL -->
+  <section class="cta-band">
+    <div class="container">
+      <h2>¿Tenés dudas con tu talle?</h2>
+      <p>Escribinos y te ayudamos a elegir. Respondemos rápido.</p>
+      <a class="btn btn--wa btn--lg" href="<%= waLink('Hola! Tengo una consulta sobre talles.') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Escribir por WhatsApp</a>
+    </div>
+  </section>
+</main>
+
+<%- include('../partials/footer') %>

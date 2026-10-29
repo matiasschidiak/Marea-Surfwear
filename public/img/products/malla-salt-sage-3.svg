@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img"><defs><clipPath id="c"><rect width="800" height="1000"/></clipPath></defs>
+      <g clip-path="url(#c)"><g transform="translate(-380 -430) scale(2.1)">
+        <rect x="100" y="200" width="620" height="540" fill="#a9c0a4"/>
+    <path d="M190,230 L262,230 L276,700 L190,700Z" fill="#f6efe3" opacity="0.95"/>
+    <path d="M538,230 L610,230 L610,700 L524,700Z" fill="#f6efe3" opacity="0.95"/>
+    <path d="M262,230 L276,700 L290,700 L274,230Z" fill="#274c45" opacity="0.9"/>
+    <path d="M510,230 L524,700 L510,700 L498,230Z" fill="#274c45" opacity="0.9"/>
+        <rect x="100" y="200" width="620" height="540" fill="url(#sh)"/></g></g>
+      <defs><linearGradient id="sh" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity=".25"/></linearGradient></defs>
+      <rect x="40" y="900" width="330" height="58" rx="29" fill="#fff" fill-opacity=".92"/>
+      <text x="205" y="937" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="24" fill="#0b2a43">Detalle de la estampa</text></svg>

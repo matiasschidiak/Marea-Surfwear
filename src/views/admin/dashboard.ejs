@@ -1,0 +1,44 @@
+<%- include('_head') %>
+<div class="a-page-head"><h1>Resumen</h1></div>
+
+<div class="a-stats">
+  <a class="a-stat" href="/admin/pedidos?estado=pendiente"><span>Pedidos pendientes</span><strong><%= stats.pending %></strong></a>
+  <div class="a-stat"><span>Pedidos hoy</span><strong><%= stats.today %></strong></div>
+  <div class="a-stat"><span>Ventas (30 días)</span><strong><%= money(stats.revenue30d) %></strong></div>
+  <a class="a-stat" href="/admin/productos"><span>Productos activos</span><strong><%= stats.products.active %> <small>/ <%= stats.products.total %></small></strong></a>
+</div>
+
+<div class="a-grid-2">
+  <section class="a-card">
+    <div class="a-card__head"><h2>Alertas de stock</h2><a href="/admin/stock">Editar stock</a></div>
+    <% if (lowStock.length) { %>
+    <p class="a-muted">Talles con <%= threshold %> unidades o menos.</p>
+    <ul class="a-alerts">
+      <% lowStock.slice(0, 12).forEach(function (r) { %>
+      <li class="<%= r.stock === 0 ? 'is-out' : 'is-low' %>">
+        <a href="/admin/productos/<%= r.product_id %>"><%= r.product_name %></a>
+        <span>Talle <%= r.size %></span>
+        <strong><%= r.stock === 0 ? 'Agotado' : ('Quedan ' + r.stock) %></strong>
+      </li>
+      <% }) %>
+    </ul>
+    <% if (lowStock.length > 12) { %><p class="a-muted">y <%= lowStock.length - 12 %> más…</p><% } %>
+    <% } else { %><p class="a-muted">Todo en orden: ningún talle con poco stock.</p><% } %>
+  </section>
+
+  <section class="a-card">
+    <div class="a-card__head"><h2>Últimos pedidos</h2><a href="/admin/pedidos">Ver todos</a></div>
+    <% if (recent.length) { %>
+    <ul class="a-list">
+      <% recent.forEach(function (o) { %>
+      <li>
+        <a href="/admin/pedidos/<%= o.id %>"><strong><%= o.code %></strong> · <%= o.customer_first_name %> <%= o.customer_last_name %></a>
+        <span class="a-muted"><%= dateTime(o.created_at) %> · <%= money(o.total) %></span>
+        <span class="a-pill a-pill--<%= o.status %>"><%= statusLabel(o.status) %></span>
+      </li>
+      <% }) %>
+    </ul>
+    <% } else { %><p class="a-muted">Todavía no hay pedidos.</p><% } %>
+  </section>
+</div>
+<%- include('_foot') %>

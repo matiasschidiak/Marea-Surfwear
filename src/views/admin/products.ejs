@@ -1,0 +1,53 @@
+<%- include('_head') %>
+<div class="a-page-head">
+  <h1>Productos</h1>
+  <a class="a-btn a-btn--primary" href="/admin/productos/nuevo">+ Nuevo producto</a>
+</div>
+
+<% if (!list.length) { %>
+<div class="a-card"><p class="a-muted">Todavía no cargaste productos. Creá el primero con el botón de arriba.</p></div>
+<% } else { %>
+<div class="a-table-wrap">
+<table class="a-table a-table--stack">
+  <thead><tr><th>Producto</th><th>Precio</th><th>Stock por talle</th><th>Estado</th><th></th></tr></thead>
+  <tbody>
+  <% list.forEach(function (p) { %>
+  <tr>
+    <td data-label="Producto">
+      <div class="a-prod">
+        <% if (p.images[0]) { %><img src="<%= p.images[0].url %>" alt="" width="48" height="60" loading="lazy"><% } else { %><span class="a-prod__ph"></span><% } %>
+        <div><a href="/admin/productos/<%= p.id %>"><strong><%= p.name %></strong></a>
+          <div class="a-muted"><%= p.categoryName || 'Sin categoría' %></div></div>
+      </div>
+    </td>
+    <td data-label="Precio"><%= money(p.price) %></td>
+    <td data-label="Stock">
+      <div class="a-sizes">
+        <% p.variants.forEach(function (v) { %><span class="a-size <%= v.stock === 0 ? 'is-out' : (v.stock <= (store.low_stock_threshold|0) ? 'is-low' : '') %>" title="<%= v.size %>: <%= v.stock %>"><%= v.size %>: <%= v.stock %></span><% }) %>
+        <% if (!p.variants.length) { %><span class="a-muted">Sin talles</span><% } %>
+      </div>
+    </td>
+    <td data-label="Estado">
+      <div class="a-flags">
+        <form method="post" action="/admin/productos/<%= p.id %>/toggle">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="field" value="active"><input type="hidden" name="value" value="<%= p.active ? 0 : 1 %>">
+          <button class="a-chip <%= p.active ? 'is-on' : '' %>" type="submit" title="<%= p.active ? 'Click para desactivar' : 'Click para activar' %>"><%= p.active ? 'Activo' : 'Inactivo' %></button>
+        </form>
+        <form method="post" action="/admin/productos/<%= p.id %>/toggle">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="field" value="featured"><input type="hidden" name="value" value="<%= p.featured ? 0 : 1 %>">
+          <button class="a-chip <%= p.featured ? 'is-on' : '' %>" type="submit" title="<%= p.featured ? 'Quitar de destacados' : 'Marcar como destacado' %>">★ <%= p.featured ? 'Destacado' : 'Destacar' %></button>
+        </form>
+        <% if (p.soldOut) { %><span class="a-pill a-pill--cancelado">Sin stock</span><% } %>
+      </div>
+    </td>
+    <td data-label="" class="a-actions">
+      <a class="a-btn a-btn--sm" href="/admin/productos/<%= p.id %>">Editar</a>
+      <a class="a-btn a-btn--sm a-btn--ghost" href="/producto/<%= p.slug %>" target="_blank" rel="noopener">Ver</a>
+    </td>
+  </tr>
+  <% }) %>
+  </tbody>
+</table>
+</div>
+<% } %>
+<%- include('_foot') %>

@@ -1,0 +1,16 @@
+<%- include('_head') %>
+<div class="a-page-head"><h1>Mi cuenta</h1></div>
+<section class="a-card a-card--narrow">
+  <h2>Cambiar contraseña</h2>
+  <p class="a-muted">Sesión iniciada como <strong><%= admin.email %></strong>.</p>
+  <% if (error) { %><div class="a-flash a-flash--error" role="alert"><%= error %></div><% } %>
+  <form method="post" action="/admin/cuenta" class="a-form" autocomplete="off">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+    <div class="a-field"><label for="current">Contraseña actual</label><input id="current" name="current" type="password" autocomplete="current-password" required></div>
+    <div class="a-field"><label for="password">Contraseña nueva</label><input id="password" name="password" type="password" autocomplete="new-password" minlength="10" required>
+      <p class="a-hint">Mínimo 10 caracteres, con letras y números.</p></div>
+    <div class="a-field"><label for="confirm">Repetir contraseña nueva</label><input id="confirm" name="confirm" type="password" autocomplete="new-password" minlength="10" required></div>
+    <button class="a-btn a-btn--primary" type="submit">Actualizar contraseña</button>
+  </form>
+</section>
+<%- include('_foot') %>

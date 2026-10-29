@@ -1,0 +1,36 @@
+<%- include('../partials/head', { bodyClass: 'page-done' }) %>
+<%- include('../partials/header') %>
+
+<main id="main">
+  <div class="container container--narrow done" data-order-done data-code="<%= order.code %>" data-fallback-url="<%= fallbackWaUrl %>">
+    <div class="done__icon" aria-hidden="true"><%- icon('check') %></div>
+    <h1>¡Pedido registrado!</h1>
+    <p class="done__code">Código de pedido <strong><%= order.code %></strong></p>
+    <p class="done__lead">Ya reservamos tu stock. <strong>Falta un paso:</strong> enviá el mensaje por WhatsApp para que podamos coordinar el pago y la entrega.</p>
+
+    <a class="btn btn--wa btn--lg btn--block" href="<%= fallbackWaUrl %>" target="_blank" rel="noopener" data-done-wa>
+      <%- icon('whatsapp') %> Abrir WhatsApp con mi pedido
+    </a>
+    <p class="done__hint" data-done-hint>Si no se abrió solo, tocá el botón verde.</p>
+
+    <div class="card-box">
+      <h2>Resumen</h2>
+      <ul class="lines">
+        <% order.items.forEach(function (it) { %>
+        <li class="line">
+          <div class="line__info">
+            <strong><%= it.product_name %></strong>
+            <span>Talle <%= it.size_name %> · <%= it.quantity %> × <%= money(it.unit_price) %></span>
+          </div>
+          <span class="line__sub"><%= money(it.subtotal) %></span>
+        </li>
+        <% }) %>
+      </ul>
+      <div class="totals"><span>Total</span><strong><%= money(order.total) %></strong></div>
+    </div>
+
+    <p class="center"><a class="link-arrow link-arrow--back" href="/"><%- icon('arrow-left') %> Volver a la tienda</a></p>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

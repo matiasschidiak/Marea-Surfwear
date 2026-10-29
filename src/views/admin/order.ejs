@@ -1,0 +1,85 @@
+<%- include('_head') %>
+<div class="a-page-head">
+  <div>
+    <p class="a-crumb"><a href="/admin/pedidos">← Pedidos</a></p>
+    <h1>Pedido <%= order.code %> <span class="a-pill a-pill--<%= order.status %>"><%= statusLabel(order.status) %></span></h1>
+    <p class="a-muted">Realizado el <%= dateTime(order.created_at) %> (hora de Argentina)</p>
+  </div>
+</div>
+
+<div class="a-grid-2 a-grid-2--wide">
+  <div>
+    <section class="a-card">
+      <h2>Productos</h2>
+      <div class="a-table-wrap">
+      <table class="a-table a-table--stack">
+        <thead><tr><th>Producto</th><th>Talle</th><th>Cant.</th><th>Precio</th><th>Subtotal</th></tr></thead>
+        <tbody>
+        <% order.items.forEach(function (it) { %>
+        <tr>
+          <td data-label="Producto"><%= it.product_name %></td>
+          <td data-label="Talle"><%= it.size_name %></td>
+          <td data-label="Cant."><%= it.quantity %></td>
+          <td data-label="Precio"><%= money(it.unit_price) %></td>
+          <td data-label="Subtotal"><%= money(it.subtotal) %></td>
+        </tr>
+        <% }) %>
+        </tbody>
+        <tfoot>
+          <tr><td colspan="4" class="a-right">Envío</td><td>A coordinar</td></tr>
+          <tr><td colspan="4" class="a-right"><strong>Total</strong></td><td><strong><%= money(order.total) %></strong></td></tr>
+        </tfoot>
+      </table>
+      </div>
+    </section>
+
+    <section class="a-card">
+      <h2>Cliente y entrega</h2>
+      <dl class="a-dl">
+        <dt>Cliente</dt><dd><%= order.customer_first_name %> <%= order.customer_last_name %></dd>
+        <dt>Teléfono</dt><dd><%= order.customer_phone %>
+          <a class="a-btn a-btn--sm a-btn--wa" href="<%= customerWa(order.customer_phone, 'Hola ' + order.customer_first_name + '! Te escribimos de MAREA por tu pedido ' + order.code + '.') %>" target="_blank" rel="noopener">WhatsApp</a></dd>
+        <dt>Entrega</dt><dd><%= deliveryLabel(order.delivery_method) %></dd>
+        <% if (order.ship_street) { %>
+        <dt>Dirección</dt><dd><%= order.ship_street %> <%= order.ship_number %><br><%= order.ship_city %>, <%= order.ship_province %><br>CP <%= order.ship_postal_code %></dd>
+        <% } %>
+        <dt>Pago</dt><dd><%= paymentLabel(order.payment_method) %></dd>
+        <% if (order.ship_notes) { %><dt>Indicaciones del cliente</dt><dd class="a-pre"><%= order.ship_notes %></dd><% } %>
+      </dl>
+    </section>
+  </div>
+
+  <div>
+    <section class="a-card">
+      <h2>Estado del pedido</h2>
+      <form method="post" action="/admin/pedidos/<%= order.id %>/estado" class="a-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="a-field">
+          <label for="status">Cambiar a</label>
+          <select id="status" name="status">
+            <% statuses.forEach(function (s) { %><option value="<%= s.value %>" <%= order.status === s.value ? 'selected' : '' %>><%= s.label %></option><% }) %>
+          </select>
+        </div>
+        <button class="a-btn a-btn--primary a-btn--block" type="submit">Actualizar estado</button>
+        <p class="a-hint">Al pasar a <strong>Cancelado</strong> las unidades vuelven al stock automáticamente. Si lo reactivás, se descuentan otra vez.</p>
+      </form>
+      <h3>Historial</h3>
+      <ul class="a-history">
+        <% history.forEach(function (h) { %>
+        <li><span class="a-pill a-pill--<%= h.status %>"><%= statusLabel(h.status) %></span> <span class="a-muted"><%= dateTime(h.created_at) %><%= h.admin_name || h.admin_email ? ' · ' + (h.admin_name || h.admin_email) : '' %></span></li>
+        <% }) %>
+      </ul>
+    </section>
+
+    <section class="a-card">
+      <h2>Notas internas</h2>
+      <form method="post" action="/admin/pedidos/<%= order.id %>/notas" class="a-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="a-field"><label class="sr-only" for="notes">Notas</label>
+          <textarea id="notes" name="notes" rows="4" maxlength="1000" placeholder="Solo visibles para vos"><%= order.admin_notes %></textarea></div>
+        <button class="a-btn a-btn--ghost a-btn--block" type="submit">Guardar notas</button>
+      </form>
+    </section>
+  </div>
+</div>
+<%- include('_foot') %>

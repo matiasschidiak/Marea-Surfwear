@@ -1,0 +1,20 @@
+<%
+  const jsonLdBlocks = [{
+    '@context': 'https://schema.org', '@type': 'FAQPage',
+    mainEntity: faq.map(function (f) { return { '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } }; }),
+  }];
+%>
+<%- include('../partials/head', { bodyClass: 'page-info', jsonLdBlocks: jsonLdBlocks }) %>
+<%- include('../partials/header') %>
+<main id="main">
+  <div class="container container--narrow">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><ol><li><a href="/">Inicio</a></li><li aria-current="page">Preguntas frecuentes</li></ol></nav>
+    <h1 class="page-title">Preguntas frecuentes</h1>
+    <%- include('../partials/faq-list', { items: faq }) %>
+    <div class="cta-inline">
+      <p>¿No encontraste lo que buscabas?</p>
+      <a class="btn btn--wa" href="<%= waLink() %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Escribinos por WhatsApp</a>
+    </div>
+  </div>
+</main>
+<%- include('../partials/footer') %>

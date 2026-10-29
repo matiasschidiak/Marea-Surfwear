@@ -1,0 +1,174 @@
+<%- include('../partials/head', { bodyClass: 'page-checkout' }) %>
+<%- include('../partials/header') %>
+
+<main id="main">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="Migas de pan">
+      <ol><li><a href="/">Inicio</a></li><li aria-current="page">Finalizar compra</li></ol>
+    </nav>
+    <h1 class="page-title">Finalizar compra</h1>
+
+    <!-- Carrito vacío -->
+    <div class="empty" data-checkout-empty hidden>
+      <%- icon('bag') %>
+      <h2>Tu carrito está vacío</h2>
+      <p>Sumá alguna malla para armar tu pedido.</p>
+      <a class="btn btn--primary" href="/#catalogo">Ver mallas</a>
+    </div>
+
+    <!-- Cargando -->
+    <div class="loading" data-checkout-loading><span class="spinner" aria-hidden="true"></span> Cargando tu pedido…</div>
+
+    <div class="checkout" data-checkout hidden>
+      <ol class="stepper" aria-label="Pasos">
+        <li class="is-active" data-step-ind="1"><span>1</span> Tus datos</li>
+        <li data-step-ind="2"><span>2</span> Resumen</li>
+        <li data-step-ind="3"><span>3</span> WhatsApp</li>
+      </ol>
+
+      <div class="checkout__layout">
+        <div class="checkout__main">
+          <div class="alert alert--warn" data-checkout-alert role="alert" hidden></div>
+
+          <!-- PASO 1: datos -->
+          <form class="form" data-checkout-form novalidate autocomplete="on">
+            <fieldset class="card-box">
+              <legend>Tus datos</legend>
+              <div class="form__row">
+                <div class="field">
+                  <label for="firstName">Nombre</label>
+                  <input id="firstName" name="firstName" type="text" autocomplete="given-name" maxlength="60" required>
+                  <p class="field-error" data-error-for="firstName" hidden></p>
+                </div>
+                <div class="field">
+                  <label for="lastName">Apellido</label>
+                  <input id="lastName" name="lastName" type="text" autocomplete="family-name" maxlength="60" required>
+                  <p class="field-error" data-error-for="lastName" hidden></p>
+                </div>
+              </div>
+              <div class="field">
+                <label for="phone">Teléfono / WhatsApp</label>
+                <input id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" maxlength="20" placeholder="Ej: 299 415 4002" required>
+                <p class="field-hint">Con código de área, sin 0 ni 15.</p>
+                <p class="field-error" data-error-for="phone" hidden></p>
+              </div>
+            </fieldset>
+
+            <fieldset class="card-box">
+              <legend>Método de entrega</legend>
+              <div class="choice-list" role="radiogroup" aria-label="Método de entrega">
+                <% deliveryMethods.forEach(function (d, i) { %>
+                <label class="choice">
+                  <input type="radio" name="deliveryMethod" value="<%= d.value %>" data-requires-address="<%= d.requiresAddress %>" <%= i === 0 ? 'checked' : '' %>>
+                  <span class="choice__body"><strong><%= d.label %></strong><small><%= d.hint %></small></span>
+                </label>
+                <% }) %>
+              </div>
+              <p class="field-error" data-error-for="deliveryMethod" hidden></p>
+            </fieldset>
+
+            <fieldset class="card-box" data-address-box>
+              <legend>Dirección de entrega</legend>
+              <div class="form__row form__row--street">
+                <div class="field">
+                  <label for="street">Calle</label>
+                  <input id="street" name="street" type="text" autocomplete="address-line1" maxlength="120">
+                  <p class="field-error" data-error-for="street" hidden></p>
+                </div>
+                <div class="field">
+                  <label for="streetNumber">Número</label>
+                  <input id="streetNumber" name="streetNumber" type="text" inputmode="text" maxlength="12" placeholder='Ej: 1234 o S/N'>
+                  <p class="field-error" data-error-for="streetNumber" hidden></p>
+                </div>
+              </div>
+              <div class="form__row">
+                <div class="field">
+                  <label for="city">Ciudad</label>
+                  <input id="city" name="city" type="text" autocomplete="address-level2" maxlength="80">
+                  <p class="field-error" data-error-for="city" hidden></p>
+                </div>
+                <div class="field">
+                  <label for="postalCode">Código postal</label>
+                  <input id="postalCode" name="postalCode" type="text" autocomplete="postal-code" maxlength="10" placeholder="Ej: 8300">
+                  <p class="field-error" data-error-for="postalCode" hidden></p>
+                </div>
+              </div>
+              <div class="field">
+                <label for="province">Provincia</label>
+                <select id="province" name="province" autocomplete="address-level1">
+                  <option value="">Elegí una provincia</option>
+                  <% provinces.forEach(function (p) { %><option value="<%= p %>" <%= p === 'Neuquén' ? 'data-default' : '' %>><%= p %></option><% }) %>
+                </select>
+                <p class="field-error" data-error-for="province" hidden></p>
+              </div>
+            </fieldset>
+
+            <fieldset class="card-box">
+              <legend>Método de pago</legend>
+              <div class="choice-list" role="radiogroup" aria-label="Método de pago">
+                <% paymentMethods.forEach(function (m, i) { %>
+                <label class="choice" data-payment="<%= m.value %>">
+                  <input type="radio" name="paymentMethod" value="<%= m.value %>" <%= i === 0 ? 'checked' : '' %>>
+                  <span class="choice__body"><strong><%= m.label %></strong><small><%= m.hint %></small></span>
+                </label>
+                <% }) %>
+              </div>
+              <p class="field-error" data-error-for="paymentMethod" hidden></p>
+            </fieldset>
+
+            <fieldset class="card-box">
+              <legend>Indicaciones adicionales <span class="optional">(opcional)</span></legend>
+              <div class="field">
+                <label for="notes" class="sr-only">Indicaciones para la entrega</label>
+                <textarea id="notes" name="notes" rows="3" maxlength="500" placeholder="Ej: Piso 2 B. Entregar por la tarde."></textarea>
+              </div>
+            </fieldset>
+
+            <button class="btn btn--accent btn--lg btn--block" type="submit">Revisar pedido <%- icon('arrow-right') %></button>
+          </form>
+
+          <!-- PASO 2: resumen final -->
+          <section class="review" data-review hidden aria-labelledby="review-title">
+            <h2 id="review-title">Revisá tu pedido</h2>
+            <div class="card-box">
+              <h3>Productos</h3>
+              <ul class="lines" data-review-lines></ul>
+              <div class="totals"><span>Total</span><strong data-review-total></strong></div>
+              <p class="totals__note">El costo de envío se coordina por WhatsApp.</p>
+            </div>
+            <div class="card-box">
+              <h3>Tus datos</h3>
+              <dl class="dl" data-review-customer></dl>
+            </div>
+            <div class="card-box">
+              <h3>Entrega y pago</h3>
+              <dl class="dl" data-review-delivery></dl>
+            </div>
+            <div class="alert alert--info">
+              <%- icon('whatsapp') %>
+              <p>Al confirmar se abre WhatsApp con tu pedido ya escrito. <strong>Recordá enviar el mensaje</strong> para que lo recibamos.</p>
+            </div>
+            <div class="review__actions">
+              <button class="btn btn--ghost" type="button" data-review-back><%- icon('arrow-left') %> Editar datos</button>
+              <button class="btn btn--wa btn--lg" type="button" data-confirm><%- icon('whatsapp') %> <span data-confirm-label>Confirmar pedido por WhatsApp</span></button>
+            </div>
+          </section>
+        </div>
+
+        <aside class="checkout__aside" data-summary-aside aria-label="Resumen del pedido">
+          <div class="card-box">
+            <div class="aside__head">
+              <h2>Tu pedido</h2>
+              <button type="button" class="link-btn" data-cart-open>Editar</button>
+            </div>
+            <ul class="lines lines--compact" data-summary-lines></ul>
+            <div class="totals"><span>Total</span><strong data-summary-total></strong></div>
+            <p class="totals__note">Envío a coordinar por WhatsApp.</p>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Ingresar · Panel MAREA</title>
+  <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=DM+Sans:wght@400..700&display=swap">
+  <link rel="stylesheet" href="<%= asset('/css/admin.css') %>">
+</head>
+<body class="admin admin--login">
+<%- include('../partials/icons') %>
+<main class="login">
+  <div class="login__card">
+    <div class="a-brand a-brand--center"><span class="a-brand__link"><%- icon('wave', 'a-brand__mark') %><span>MAREA</span><small>Panel</small></span></div>
+    <h1>Ingresar</h1>
+    <% if (error) { %><div class="a-flash a-flash--error" role="alert"><%= error %></div><% } %>
+    <form method="post" action="/admin/login" autocomplete="on">
+      <input type="hidden" name="_lcsrf" value="<%= loginCsrf %>">
+      <input type="hidden" name="next" value="<%= next %>">
+      <div class="a-field">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" value="<%= email %>" autocomplete="username" required autofocus>
+      </div>
+      <div class="a-field">
+        <label for="password">Contraseña</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <button class="a-btn a-btn--primary a-btn--block" type="submit">Entrar</button>
+    </form>
+    <p class="login__back"><a href="/">← Volver a la tienda</a></p>
+  </div>
+</main>
+</body>
+</html>

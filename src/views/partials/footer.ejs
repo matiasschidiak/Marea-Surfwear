@@ -1,0 +1,88 @@
+
+<footer class="site-footer">
+  <div class="container footer__grid">
+    <div class="footer__brand">
+      <a class="logo logo--light" href="/" aria-label="<%= store.brand_name %> <%= store.brand_tagline %>">
+        <%- icon('wave', 'logo__mark') %>
+        <span class="logo__word"><%= store.brand_name %></span>
+        <span class="logo__tag"><%= store.brand_tagline %></span>
+      </a>
+      <p>Mallas de surf pensadas para el agua, la arena y el verano que no termina.</p>
+      <% const socials = [['instagram_url', 'instagram', 'Instagram'], ['tiktok_url', 'tiktok', 'TikTok'], ['facebook_url', 'facebook', 'Facebook']].filter(function (s) { return store[s[0]]; }); %>
+      <% if (socials.length) { %>
+      <ul class="social" aria-label="Redes sociales">
+        <% socials.forEach(function (s) { %>
+        <li><a href="<%= store[s[0]] %>" target="_blank" rel="noopener me" aria-label="<%= s[2] %>"><%- icon(s[1]) %></a></li>
+        <% }) %>
+      </ul>
+      <% } %>
+    </div>
+
+    <nav class="footer__col" aria-label="Tienda">
+      <h2>Tienda</h2>
+      <ul>
+        <li><a href="/#catalogo">Todas las mallas</a></li>
+        <li><a href="/#destacados">Destacados</a></li>
+        <li><a href="/checkout">Finalizar compra</a></li>
+      </ul>
+    </nav>
+
+    <nav class="footer__col" aria-label="Ayuda">
+      <h2>Ayuda</h2>
+      <ul>
+        <li><a href="/envios">Envíos y pagos</a></li>
+        <li><a href="/preguntas-frecuentes">Preguntas frecuentes</a></li>
+        <li><a href="/cambios-y-devoluciones">Cambios y devoluciones</a></li>
+        <li><a href="/terminos-y-condiciones">Términos y condiciones</a></li>
+      </ul>
+    </nav>
+
+    <div class="footer__col">
+      <h2>Contacto</h2>
+      <ul>
+        <li><a href="<%= waLink() %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> <%= whatsappPretty(waNumber) %></a></li>
+        <% if (store.contact_email) { %><li><a href="mailto:<%= store.contact_email %>"><%- icon('mail') %> <%= store.contact_email %></a></li><% } %>
+        <% if (store.store_address) { %><li><span class="footer__line"><%- icon('pin') %> <%= store.store_address %></span></li><% } %>
+      </ul>
+    </div>
+  </div>
+  <div class="footer__bottom">
+    <div class="container">
+      <p>&copy; <%= new Date().getFullYear() %> <%= store.brand_name %> <%= store.brand_tagline %>. Todos los derechos reservados.</p>
+      <p>Pagos por transferencia, Mercado Pago o efectivo · Envíos a todo el país</p>
+    </div>
+  </div>
+</footer>
+
+<a class="wa-float" href="<%= waLink() %>" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp">
+  <%- icon('whatsapp') %><span class="wa-float__label">Consultanos</span>
+</a>
+
+<!-- Carrito (panel lateral en escritorio, hoja inferior en celulares) -->
+<div class="drawer" id="cart-drawer" data-drawer hidden>
+  <div class="drawer__backdrop" data-cart-close></div>
+  <aside class="drawer__panel" role="dialog" aria-modal="true" aria-labelledby="cart-title" tabindex="-1">
+    <div class="drawer__head">
+      <h2 id="cart-title">Tu carrito</h2>
+      <button class="icon-btn" type="button" aria-label="Cerrar carrito" data-cart-close><%- icon('close') %></button>
+    </div>
+    <div class="drawer__body" data-cart-body aria-live="polite"></div>
+    <div class="drawer__foot" data-cart-foot hidden>
+      <div class="drawer__total"><span>Total</span><strong data-cart-total>$0</strong></div>
+      <p class="drawer__note">Envío a coordinar por WhatsApp.</p>
+      <a class="btn btn--accent btn--block" href="/checkout" data-cart-checkout>Finalizar compra <%- icon('arrow-right') %></a>
+      <div class="drawer__links">
+        <button type="button" class="link-btn" data-cart-close>Seguir comprando</button>
+        <span data-cart-clear-wrap>
+          <button type="button" class="link-btn link-btn--danger" data-cart-clear>Vaciar carrito</button>
+        </span>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<div class="toasts" data-toasts role="status" aria-live="polite"></div>
+
+<script type="module" src="<%= asset('/js/app.js') %>"></script>
+</body>
+</html>

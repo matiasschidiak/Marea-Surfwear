@@ -1,0 +1,44 @@
+<%
+  const m = meta || {};
+  const brand = store.brand_name + ' ' + store.brand_tagline;
+  const pageTitle = m.title || brand;
+  const url = m.canonicalPath ? siteUrl + m.canonicalPath : null;
+  const ogImage = m.image || (siteUrl + '/img/og-default.jpg');
+%><!doctype html>
+<html lang="es-AR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title><%= pageTitle %></title>
+  <% if (m.description) { %><meta name="description" content="<%= m.description %>"><% } %>
+  <% if (m.noindex) { %><meta name="robots" content="noindex, nofollow"><% } %>
+  <% if (url) { %><link rel="canonical" href="<%= url %>"><% } %>
+  <meta name="theme-color" content="#0b2a43">
+  <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+
+  <meta property="og:site_name" content="<%= brand %>">
+  <meta property="og:locale" content="es_AR">
+  <meta property="og:type" content="<%= m.type === 'product' ? 'product' : 'website' %>">
+  <meta property="og:title" content="<%= pageTitle %>">
+  <% if (m.description) { %><meta property="og:description" content="<%= m.description %>"><% } %>
+  <% if (url) { %><meta property="og:url" content="<%= url %>"><% } %>
+  <meta property="og:image" content="<%= ogImage %>">
+  <% if (m.product) { %>
+  <meta property="og:image:alt" content="<%= m.product.name %>">
+  <meta property="product:price:amount" content="<%= m.product.price %>">
+  <meta property="product:price:currency" content="ARS">
+  <meta property="product:availability" content="<%= m.product.soldOut ? 'out of stock' : 'in stock' %>">
+  <% } %>
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="<%= pageTitle %>">
+  <meta name="twitter:image" content="<%= ogImage %>">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@700;800&family=DM+Sans:wght@400..700&display=swap">
+  <link rel="stylesheet" href="<%= asset('/css/main.css') %>">
+  <% if (locals.jsonLdBlocks) { jsonLdBlocks.forEach(function (block) { %>
+  <script type="application/ld+json"><%- jsonLd(block) %></script>
+  <% }) } %>
+</head>
+<body<% if (locals.bodyClass) { %> class="<%= bodyClass %>"<% } %> data-wa-number="<%= waNumber %>" data-max-qty="<%= limits.maxQtyPerLine %>">

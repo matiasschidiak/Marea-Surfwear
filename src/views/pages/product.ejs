@@ -1,0 +1,168 @@
+<%
+  const p = product;
+  const imgs = p.images;
+  const abs = function (u) { return /^https?:/.test(u) ? u : siteUrl + u; };
+  const jsonLdBlocks = [
+    { '@context': 'https://schema.org', '@type': 'Product', name: p.name,
+      description: p.shortDescription || p.description, image: imgs.map(function (i) { return abs(i.url); }),
+      sku: 'MAREA-' + p.id, brand: { '@type': 'Brand', name: store.brand_name },
+      material: p.material || undefined, category: p.categoryName || undefined,
+      offers: { '@type': 'Offer', url: siteUrl + '/producto/' + p.slug, priceCurrency: 'ARS', price: p.price,
+        availability: p.soldOut ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock', itemCondition: 'https://schema.org/NewCondition' } },
+    { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Inicio', item: siteUrl + '/' },
+      { '@type': 'ListItem', position: 2, name: p.categoryName || 'Mallas', item: siteUrl + '/#catalogo' },
+      { '@type': 'ListItem', position: 3, name: p.name, item: siteUrl + '/producto/' + p.slug } ] },
+  ];
+%>
+<%- include('../partials/head', { jsonLdBlocks: jsonLdBlocks, bodyClass: 'page-product' }) %>
+<%- include('../partials/header') %>
+
+<main id="main">
+  <div class="container">
+    <nav class="breadcrumbs" aria-label="Migas de pan">
+      <ol>
+        <li><a href="/">Inicio</a></li>
+        <li><a href="/#catalogo"><%= p.categoryName || 'Mallas' %></a></li>
+        <li aria-current="page"><%= p.name %></li>
+      </ol>
+    </nav>
+
+    <article class="pdp" data-product data-product-slug="<%= p.slug %>" data-name="<%= p.name %>" data-price="<%= p.price %>"
+      data-image="<%= imgs[0] ? imgs[0].url : '' %>" data-image-alt="<%= imgs[0] ? (imgs[0].alt || p.name) : p.name %>">
+
+      <!-- GALERÍA -->
+      <section class="gallery" aria-label="Fotos de <%= p.name %>" data-gallery>
+        <div class="gallery__main">
+          <div class="gallery__track" data-gallery-track tabindex="0" aria-roledescription="carrusel">
+            <% if (imgs.length) { imgs.forEach(function (im, i) { %>
+            <figure class="gallery__slide" data-slide>
+              <%- img({ url: im.url, alt: im.alt || (p.name + ' - foto ' + (i + 1)) }, { sizes: '(min-width: 900px) 50vw, 100vw', priority: i === 0 }) %>
+            </figure>
+            <% }) } else { %>
+            <figure class="gallery__slide"><div class="img-fallback" role="img" aria-label="Sin foto"></div></figure>
+            <% } %>
+          </div>
+          <% if (imgs.length > 1) { %>
+          <button class="gallery__nav gallery__nav--prev" type="button" aria-label="Foto anterior" data-gallery-prev><%- icon('chevron-left') %></button>
+          <button class="gallery__nav gallery__nav--next" type="button" aria-label="Foto siguiente" data-gallery-next><%- icon('chevron-right') %></button>
+          <p class="gallery__count" aria-live="polite"><span data-gallery-index>1</span> / <%= imgs.length %></p>
+          <% } %>
+          <div class="badges">
+            <% if (p.soldOut) { %><span class="badge badge--out">Sin stock</span>
+            <% } else if (p.lowStock) { %><span class="badge badge--low">Últimas unidades</span><% } %>
+          </div>
+        </div>
+        <% if (imgs.length > 1) { %>
+        <ul class="gallery__thumbs" role="tablist" aria-label="Miniaturas">
+          <% imgs.forEach(function (im, i) { %>
+          <li><button type="button" role="tab" class="<%= i === 0 ? 'is-active' : '' %>" aria-selected="<%= i === 0 %>" aria-label="Ver foto <%= i + 1 %>" data-thumb="<%= i %>">
+            <%- img({ url: im.url, alt: '' }, { sizes: '90px' }) %>
+          </button></li>
+          <% }) %>
+        </ul>
+        <% } %>
+      </section>
+
+      <!-- INFORMACIÓN -->
+      <section class="pdp__info">
+        <% if (p.categoryName) { %><p class="eyebrow"><%= p.categoryName %></p><% } %>
+        <h1><%= p.name %></h1>
+        <p class="pdp__price">
+          <strong><%= money(p.price) %></strong>
+          <% if (p.comparePrice) { %><s><%= money(p.comparePrice) %></s><% } %>
+        </p>
+        <% if (p.shortDescription) { %><p class="pdp__lead"><%= p.shortDescription %></p><% } %>
+
+        <% if (p.soldOut) { %>
+        <div class="notice notice--out" role="status">
+          <%- icon('alert') %>
+          <div>
+            <strong>Sin stock</strong>
+            <p>Todos los talles están agotados por ahora. Escribinos y te avisamos cuando vuelva.</p>
+          </div>
+        </div>
+        <a class="btn btn--wa btn--block" href="<%= waLink('Hola! Quiero que me avisen cuando vuelva a haber stock de ' + p.name + '.') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Avisame cuando vuelva</a>
+        <% } %>
+
+        <form class="pdp__form" data-add-form novalidate <%- p.soldOut ? 'hidden' : '' %>>
+          <fieldset class="sizepick">
+            <legend>Talle <span class="sizepick__chosen" data-size-chosen></span></legend>
+            <div class="sizepick__grid" role="radiogroup" aria-label="Elegí un talle">
+              <% p.variants.forEach(function (v) { %>
+              <label class="sizepick__opt <%= v.stock === 0 ? 'is-out' : '' %>">
+                <input type="radio" name="variant" value="<%= v.id %>" data-size="<%= v.size %>" data-stock="<%= v.stock %>" <%- v.stock === 0 ? 'disabled' : '' %>>
+                <span class="sizepick__btn"><%= v.size %></span>
+                <% if (v.stock === 0) { %><span class="sizepick__tag">Agotado</span>
+                <% } else if (v.stock <= 3) { %><span class="sizepick__tag sizepick__tag--low">Quedan <%= v.stock %></span><% } %>
+              </label>
+              <% }) %>
+            </div>
+            <p class="sizepick__stock" data-stock-note aria-live="polite">Elegí un talle para ver el stock.</p>
+            <p class="field-error" data-size-error hidden>Elegí un talle para continuar.</p>
+          </fieldset>
+
+          <div class="buyrow">
+            <div class="qty" data-qty>
+              <button type="button" aria-label="Menos" data-qty-minus><%- icon('minus') %></button>
+              <input type="number" inputmode="numeric" value="1" min="1" max="1" aria-label="Cantidad" data-qty-input readonly>
+              <button type="button" aria-label="Más" data-qty-plus><%- icon('plus') %></button>
+            </div>
+            <button class="btn btn--accent btn--lg buyrow__add" type="submit" data-add-btn><%- icon('bag') %> <span data-add-label>Agregar al carrito</span></button>
+          </div>
+          <a class="btn btn--ghost btn--block" href="<%= waLink('Hola! Quiero consultar por la ' + p.name + '.') %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Consultar por este producto</a>
+        </form>
+
+        <ul class="pdp__perks">
+          <li><%- icon('truck') %> Envíos a todo el país</li>
+          <li><%- icon('swap') %> Cambios por talle</li>
+          <li><%- icon('chat') %> Pedido por WhatsApp</li>
+        </ul>
+
+        <div class="accordion">
+          <% if (p.description) { %>
+          <details open>
+            <summary>Descripción <%- icon('chevron-down') %></summary>
+            <div class="prose"><% p.description.split(/\n{2,}/).forEach(function (para) { %><p><%= para %></p><% }) %></div>
+          </details>
+          <% } %>
+          <% if (p.material) { %>
+          <details>
+            <summary>Material y cuidados <%- icon('chevron-down') %></summary>
+            <div class="prose">
+              <p><strong>Composición:</strong> <%= p.material %></p>
+              <p>Enjuagala con agua dulce después de usarla, lavala a mano con agua fría, no uses lavandina ni secadora y secala a la sombra.</p>
+            </div>
+          </details>
+          <% } %>
+          <% if (p.features.length) { %>
+          <details>
+            <summary>Características <%- icon('chevron-down') %></summary>
+            <ul class="checklist"><% p.features.forEach(function (f) { %><li><%- icon('check') %> <%= f %></li><% }) %></ul>
+          </details>
+          <% } %>
+          <details>
+            <summary>Envíos y cambios <%- icon('chevron-down') %></summary>
+            <div class="prose">
+              <p>Enviamos a todo el país. El costo y el plazo se confirman por WhatsApp. Retiro en persona en Neuquén sin cargo.</p>
+              <p>Si el talle no te calza, hacemos el cambio. <a href="/cambios-y-devoluciones">Ver política completa</a>.</p>
+            </div>
+          </details>
+        </div>
+      </section>
+    </article>
+
+    <% if (related.length) { %>
+    <section class="section related" aria-labelledby="rel-title">
+      <header class="section__head"><h2 id="rel-title">También te puede gustar</h2></header>
+      <div class="grid">
+        <% related.forEach(function (product) { %><%- include('../partials/product-card', { product: product }) %><% }) %>
+      </div>
+    </section>
+    <% } %>
+
+    <p class="center back-link"><a class="link-arrow link-arrow--back" href="/#catalogo"><%- icon('arrow-left') %> Volver al catálogo</a></p>
+  </div>
+</main>
+
+<%- include('../partials/footer') %>

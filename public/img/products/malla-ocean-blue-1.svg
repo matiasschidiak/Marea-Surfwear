@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 1000" width="800" height="1000" role="img">
+    <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f6ecdd"/><stop offset="1" stop-color="#ead9c1"/></linearGradient></defs>
+    <rect width="800" height="1000" fill="url(#bg)"/>
+    <circle cx="610" cy="210" r="120" fill="#fff" opacity=".45"/>
+    <circle cx="610" cy="210" r="70" fill="#46b3e6" opacity=".35"/>
+    <path d="M0,830 Q120,790 240,830 T480,830 T720,830 T960,830 V1000 H0Z" fill="#1f6fb5" opacity=".10"/>
+    <path d="M0,880 Q120,850 240,880 T480,880 T720,880 T960,880 V1000 H0Z" fill="#1f6fb5" opacity=".14"/><g transform="translate(400 455) scale(1.3) translate(-400 -455)">
+    <ellipse cx="400" cy="705" rx="250" ry="22" fill="#000" opacity=".10"/>
+    <defs>
+      <clipPath id="body"><path d="M215,250 Q400,222 585,250 L612,650 Q520,672 428,655 Q416,520 400,452 Q384,520 372,655 Q280,672 188,650 Z"/></clipPath>
+      <linearGradient id="base" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#1f6fb5"/><stop offset="1" stop-color="#0d3c6e"/></linearGradient>
+      <linearGradient id="shine" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#fff" stop-opacity=".22"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+        <stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient>
+    </defs>
+    <path d="M215,250 Q400,222 585,250 L612,650 Q520,672 428,655 Q416,520 400,452 Q384,520 372,655 Q280,672 188,650 Z" fill="url(#base)"/>
+    <g clip-path="url(#body)"><path d="M90,270 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.55"/><path d="M135,304 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.43000000000000005"/><path d="M90,338 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.31000000000000005"/><path d="M135,372 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.55"/><path d="M90,406 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.43000000000000005"/><path d="M135,440 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.31000000000000005"/><path d="M90,474 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.55"/><path d="M135,508 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.43000000000000005"/><path d="M90,542 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.31000000000000005"/><path d="M135,576 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.55"/><path d="M90,610 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.43000000000000005"/><path d="M135,644 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.31000000000000005"/><path d="M90,678 q22.5,-16 45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0 t45,0" fill="none" stroke="#9fd3f5" stroke-width="7" stroke-linecap="round" opacity="0.55"/>
+      <rect x="150" y="220" width="500" height="480" fill="url(#shine)"/>
+      <path d="M196,626 Q300,650 372,632 L376,672 L190,672Z M428,632 Q520,650 606,626 L612,672 L424,672Z" fill="#000" opacity=".12"/>
+    </g>
+    <path d="M215,250 Q400,222 585,250 L612,650 Q520,672 428,655 Q416,520 400,452 Q384,520 372,655 Q280,672 188,650 Z" fill="none" stroke="#000" stroke-opacity=".18" stroke-width="2"/>
+    <path d="M215,250 Q400,222 585,250 L589,312 Q400,286 211,312 Z" fill="#0a2f57"/>
+    <path d="M222,276 Q400,250 578,276" fill="none" stroke="#fff" stroke-opacity=".28" stroke-width="3" stroke-dasharray="3 9"/>
+    
+    <path d="M400,452 L400,312" stroke="#000" stroke-opacity=".10" stroke-width="3"/>
+    <path d="M388,300 C360,360 350,380 352,430" fill="none" stroke="#e8f3fb" stroke-width="7" stroke-linecap="round"/>
+    <path d="M412,300 C440,355 452,385 448,438" fill="none" stroke="#e8f3fb" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="352" cy="436" r="9" fill="#e8f3fb"/><circle cx="448" cy="444" r="9" fill="#e8f3fb"/>
+    <circle cx="400" cy="296" r="13" fill="#0a2f57" stroke="#e8f3fb" stroke-width="5"/>
+    <text x="458" y="606" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="26" letter-spacing="5" fill="#fff" fill-opacity=".92">MAREA</text></g></svg>

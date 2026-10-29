@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMax slice" role="img" aria-label="Atardecer sobre el mar">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfe9ee"/><stop offset=".45" stop-color="#fbe6d0"/><stop offset=".75" stop-color="#ffc59c"/></linearGradient>
+    <radialGradient id="glow"><stop offset="0" stop-color="#ff8a5c" stop-opacity=".9"/><stop offset="1" stop-color="#ff8a5c" stop-opacity="0"/></radialGradient>
+    <linearGradient id="s1" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#4fb6b6"/><stop offset="1" stop-color="#1f8a95"/></linearGradient>
+    <linearGradient id="s2" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f7fa0"/><stop offset="1" stop-color="#134f78"/></linearGradient>
+    <linearGradient id="s3" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#14537e"/><stop offset="1" stop-color="#0a2d4d"/></linearGradient>
+    <linearGradient id="s4" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0c365a"/><stop offset="1" stop-color="#06182c"/></linearGradient>
+  </defs>
+  <rect width="1600" height="1000" fill="url(#sky)"/>
+  <circle cx="1180" cy="520" r="360" fill="url(#glow)"/>
+  <circle cx="1180" cy="520" r="132" fill="#ff7a52"/>
+  <circle cx="1180" cy="520" r="132" fill="#ffd9a8" opacity=".35"/>
+  <path d="M-100,600 H1800 V1000 H-100Z" fill="url(#s1)"/>
+  <path d="M-100,640 Q-5,621.4876383342263 90,640 T280,640 Q375,621.4876383342263 470,640 T660,640 Q755,621.4876383342263 850,640 T1040,640 Q1135,621.4876383342263 1230,640 T1420,640 Q1515,621.4876383342263 1610,640 T1800,640 Q1895,621.4876383342263 1990,640 T2180,640 V1000 H-100Z" fill="url(#s1)"/>
+  <path d="M-100,720 Q30,691.3899865165315 160,720 T420,720 Q550,691.3899865165315 680,720 T940,720 Q1070,691.3899865165315 1200,720 T1460,720 Q1590,691.3899865165315 1720,720 T1980,720 V1000 H-100Z" fill="url(#s2)"/>
+  <path d="M-100,742 Q150,700 360,742 T800,742 T1240,742 T1680,742" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width="5" stroke-linecap="round"/>
+  <path d="M-100,820 Q60,779.609392729221 220,820 T540,820 Q700,779.609392729221 860,820 T1180,820 Q1340,779.609392729221 1500,820 T1820,820 V1000 H-100Z" fill="url(#s3)"/>
+  <path d="M-100,846 Q220,790 540,846 T1180,846 T1820,846" fill="none" stroke="#fff" stroke-opacity=".7" stroke-width="7" stroke-linecap="round"/>
+  <path d="M-100,920 Q90,872.8776248507578 280,920 T660,920 Q850,872.8776248507578 1040,920 T1420,920 Q1610,872.8776248507578 1800,920 T2180,920 V1000 H-100Z" fill="url(#s4)"/>
+  <path d="M-100,944 Q280,884 660,944 T1420,944 T2180,944" fill="none" stroke="#fff" stroke-opacity=".5" stroke-width="6" stroke-linecap="round"/>
+</svg>

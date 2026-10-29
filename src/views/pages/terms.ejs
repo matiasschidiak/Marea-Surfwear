@@ -1,0 +1,36 @@
+<%- include('../partials/head', { bodyClass: 'page-info' }) %>
+<%- include('../partials/header') %>
+<main id="main">
+  <div class="container container--narrow">
+    <nav class="breadcrumbs" aria-label="Migas de pan"><ol><li><a href="/">Inicio</a></li><li aria-current="page">Términos y condiciones</li></ol></nav>
+    <article class="prose prose--page">
+      <h1>Términos y condiciones</h1>
+      <p class="lead">Al usar este sitio y realizar un pedido aceptás estas condiciones.</p>
+
+      <h2>1. Quiénes somos</h2>
+      <p><%= store.brand_name %> <%= store.brand_tagline %> es una marca de indumentaria de surf con base en Neuquén, Argentina. Contacto: <%= whatsappPretty(waNumber) %><% if (store.contact_email) { %> · <%= store.contact_email %><% } %>.</p>
+
+      <h2>2. Cómo funciona la compra</h2>
+      <p>Al confirmar tu pedido en la web, este queda registrado y el stock de los productos y talles elegidos se reserva a tu nombre. La compra se concreta cuando enviás el mensaje por WhatsApp, confirmamos los detalles (stock, costo de envío y medio de pago) y se acredita el pago.</p>
+
+      <h2>3. Precios y stock</h2>
+      <p>Los precios están expresados en pesos argentinos (ARS) e incluyen impuestos. Pueden cambiar sin previo aviso, pero el precio de un pedido ya registrado no se modifica. El stock se muestra por talle y se actualiza en tiempo real; en caso de un error de stock excepcional, te contactaremos para ofrecerte una alternativa o el reintegro.</p>
+
+      <h2>4. Envíos</h2>
+      <p>El costo y los plazos de envío se informan por WhatsApp antes del pago. Los plazos son estimados y dependen del correo o mensajería. Más información en <a href="/envios">Envíos y pagos</a>.</p>
+
+      <h2>5. Cambios, devoluciones y arrepentimiento</h2>
+      <p>Se rigen por la <a href="/cambios-y-devoluciones">política de cambios y devoluciones</a> y por la Ley de Defensa del Consumidor (Ley 24.240).</p>
+
+      <h2>6. Datos personales</h2>
+      <p>Usamos los datos que ingresás (nombre, teléfono y dirección) únicamente para procesar y entregar tu pedido y contactarte por él. No los vendemos ni los compartimos con terceros, salvo los necesarios para el envío. Podés solicitar la corrección o eliminación de tus datos escribiéndonos (Ley 25.326 de Protección de Datos Personales).</p>
+
+      <h2>7. Propiedad intelectual</h2>
+      <p>Las fotos, textos, logos y diseños de este sitio son propiedad de <%= store.brand_name %> y no pueden usarse sin autorización.</p>
+
+      <h2>8. Jurisdicción</h2>
+      <p>Estos términos se rigen por las leyes de la República Argentina. Ante cualquier conflicto, serán competentes los tribunales ordinarios del domicilio del consumidor.</p>
+    </article>
+  </div>
+</main>
+<%- include('../partials/footer') %>
