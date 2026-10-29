@@ -16,7 +16,8 @@ const config = {
   root,
   isProduction,
   port: int(env.PORT, 3000),
-  siteUrl: (env.SITE_URL || `http://localhost:${int(env.PORT, 3000)}`).replace(/\/+$/, ''),
+  // En Render, si no se define SITE_URL se usa la dirección .onrender.com del servicio.
+  siteUrl: (env.SITE_URL || env.RENDER_EXTERNAL_URL || `http://localhost:${int(env.PORT, 3000)}`).replace(/\/+$/, ''),
   trustProxy: env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true',
 
   dbPath: path.resolve(root, env.DATABASE_PATH || 'data/marea.db'),

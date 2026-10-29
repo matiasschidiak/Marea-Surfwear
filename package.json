@@ -9,6 +9,7 @@
   },
   "scripts": {
     "start": "node server.js",
+    "start:prod": "node scripts/start-production.js",
     "dev": "node --watch server.js",
     "db:init": "node scripts/db-init.js",
     "db:seed": "node scripts/db-seed.js",

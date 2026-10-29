@@ -1,0 +1,42 @@
+# Blueprint de Render: https://render.com/docs/blueprint-spec
+# En Render: New → Blueprint → elegí este repositorio. Las variables marcadas
+# con "sync: false" te las pide al crear el servicio.
+services:
+  - type: web
+    name: marea-surfwear
+    runtime: node
+    # El disco persistente (base de datos y fotos) necesita un plan pago.
+    # En el plan gratis cada reinicio borraría los productos y pedidos.
+    plan: starter
+    region: virginia
+    buildCommand: npm ci --omit=dev
+    startCommand: npm run start:prod
+    healthCheckPath: /
+    disk:
+      name: marea-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATABASE_PATH
+        value: /data/marea.db
+      - key: UPLOADS_DIR
+        value: /data/uploads
+      - key: WHATSAPP_NUMBER
+        value: "5492994154002"
+      - key: STORE_ADDRESS
+        value: Neuquén Capital, Argentina
+      # Administrador inicial (solo se usa si todavía no hay ninguno)
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Opcional: tu dominio propio, ej. https://www.mareasurfwear.com.ar
+      # Si lo dejás vacío se usa la dirección .onrender.com
+      - key: SITE_URL
+        sync: false

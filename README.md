@@ -19,7 +19,7 @@ checkout validado, **pedido por WhatsApp con el mensaje ya armado**, **stock por
 6. [Usar el panel de administración](#usar-el-panel-de-administración)
 7. [Cómo funciona la compra y el WhatsApp](#cómo-funciona-la-compra-y-el-whatsapp)
 8. [Cómo funciona el stock](#cómo-funciona-el-stock)
-9. [Poner la tienda en producción](#poner-la-tienda-en-producción)
+9. [Poner la tienda en producción](#poner-la-tienda-en-producción) (VPS o Render)
 10. [Backups](#backups)
 11. [Seguridad](#seguridad)
 12. [Estructura del proyecto](#estructura-del-proyecto)
@@ -293,9 +293,38 @@ sudo certbot --nginx -d tudominio.com -d www.tudominio.com     # HTTPS gratis y 
 
 **Actualizar la tienda:** subir los cambios, `npm ci --omit=dev` y `pm2 restart marea`. Las migraciones se aplican solas.
 
-### Opción B: plataformas tipo Render / Railway / Fly.io
+### Opción B: Render (ya configurado en `render.yaml`)
 
-- Servicio web Node: build `npm ci --omit=dev`, start `npm start`.
+El repositorio trae un *Blueprint* de Render listo. El arranque (`npm run start:prod`)
+prepara la base de datos y crea el administrador solo, así que no hace falta consola.
+
+1. Creá una cuenta en [render.com](https://render.com) (podés entrar con GitHub).
+2. **New → Blueprint** y elegí el repositorio `Marea-Surfwear`.
+3. Render te pide tres datos:
+   - `ADMIN_EMAIL`: el email con el que vas a entrar al panel.
+   - `ADMIN_PASSWORD`: mínimo 10 caracteres, con letras y números.
+   - `SITE_URL`: dejalo vacío hasta tener dominio propio (se usa la dirección `.onrender.com`).
+4. Confirmá con **Apply**. El primer deploy tarda unos minutos.
+5. Entrá a `https://<tu-servicio>.onrender.com/admin`, cargá los productos y revisá
+   *Configuración* (WhatsApp, redes, email).
+
+**Costo:** el plan *Starter* (alrededor de USD 7 por mes) es el más barato que permite
+disco persistente. En el plan gratis la base y las fotos se borrarían en cada reinicio.
+
+**Dominio propio:** en el servicio, *Settings → Custom Domains*. Después poné la
+dirección en `SITE_URL` (con `https://`) y reiniciá.
+
+**Actualizar la tienda:** cada `git push` a `main` vuelve a publicarla sola. La base y
+las fotos están en el disco `/data`, así que no se pierden.
+
+**Productos de demostración:** si querés que la tienda arranque con las mallas de
+ejemplo, agregá la variable `SEED_DEMO=1` antes del primer deploy.
+
+**Backups:** en el servicio, *Disks → Snapshots*: Render guarda copias diarias del disco.
+
+### Opción C: otras plataformas (Railway / Fly.io)
+
+- Servicio web Node: build `npm ci --omit=dev`, start `npm run start:prod` (prepara la base y crea el admin con `ADMIN_EMAIL` / `ADMIN_PASSWORD`).
 - **Agregá un disco/volumen persistente** (por ejemplo montado en `/data`) y poné en las variables de entorno:
   `DATABASE_PATH=/data/marea.db` y `UPLOADS_DIR=/data/uploads`. Sin disco persistente, cada deploy borra la base y las fotos.
 - Variables: `NODE_ENV=production`, `TRUST_PROXY=1`, `SITE_URL=https://tu-dominio`, `WHATSAPP_NUMBER=...`.
