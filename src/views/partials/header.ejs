@@ -11,9 +11,7 @@
     </button>
 
     <a class="logo" href="/" aria-label="<%= store.brand_name %> <%= store.brand_tagline %> - Inicio">
-      <%- icon('wave', 'logo__mark') %>
-      <span class="logo__word"><%= store.brand_name %></span>
-      <span class="logo__tag"><%= store.brand_tagline %></span>
+      <img class="logo__img" src="<%= asset('/img/logo/marea-logo.svg') %>" alt="" width="199" height="51">
     </a>
 
     <nav class="nav" id="site-nav" aria-label="Principal">

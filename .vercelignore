@@ -5,6 +5,7 @@ data/
 tests/
 node_modules/
 public/uploads/
+brand/
 scripts/generate-art.js
 render.yaml
 *.log

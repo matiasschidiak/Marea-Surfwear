@@ -111,15 +111,11 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 /* La barra de aviso se va con el scroll y solo queda fija la barra del logo (más espacio en pantallas chicas) */
 .site-header.has-announce { top: -32px; }
 .bar { display: grid; grid-template-columns: 44px minmax(0, 1fr) 44px; align-items: center; min-height: var(--header-h); gap: 8px; }
-.logo { display: inline-flex; align-items: center; gap: .5rem; text-decoration: none; color: var(--ink); justify-self: center; }
-.logo__mark { width: 28px; height: 31px; color: var(--ocean); }
-.logo__word { font-family: var(--font-display); font-weight: 800; font-size: 1.45rem; letter-spacing: .12em; }
-.logo { min-width: 0; min-height: 44px; }
-@media (max-width: 419px) { .logo__tag { display: none; } .logo__word { font-size: 1.3rem; } }
-.logo__tag { font-size: .72rem; letter-spacing: .32em; text-transform: uppercase; color: var(--muted); font-weight: 700; align-self: flex-end; margin-bottom: .45rem; }
-.logo--light { color: #fff; justify-self: start; }
-.logo--light .logo__mark { color: var(--aqua); }
-.logo--light .logo__tag { color: rgba(255, 255, 255, .6); }
+.logo { display: inline-flex; align-items: center; text-decoration: none; color: var(--ink); justify-self: center; min-width: 0; min-height: 44px; }
+/* El logo es un SVG (marea-logo.svg, generado con `npm run logo:build`); la bajada SURFWEAR ya viene dentro */
+.logo__img { display: block; height: 40px; width: auto; max-width: 100%; }
+.logo--light { justify-self: start; }
+.logo--light .logo__img { height: 48px; }
 
 .nav-toggle .when-open { display: none; }
 .nav-toggle[aria-expanded="true"] .when-open { display: block; }

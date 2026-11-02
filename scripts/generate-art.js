@@ -196,15 +196,7 @@ const hero = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000" pr
 </svg>\n`;
 fs.writeFileSync(path.join(out, 'hero.svg'), hero);
 
-// ---------------------------------------------------------------------------------------------
-// Logo + favicon
-// ---------------------------------------------------------------------------------------------
-const mark = (stroke) => `<path d="M6 24 C 10 16, 16 16, 20 24 S 30 32, 34 24 S 44 16, 48 24" fill="none" stroke="${stroke}" stroke-width="5" stroke-linecap="round"/>
-  <path d="M6 36 C 10 28, 16 28, 20 36 S 30 44, 34 36 S 44 28, 48 36" fill="none" stroke="${stroke}" stroke-width="5" stroke-linecap="round" opacity=".55"/>`;
-fs.writeFileSync(path.join(out, 'favicon.svg'),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 54 60"><rect width="54" height="60" rx="14" fill="#0b2a43"/><g transform="translate(0 -1)">${mark('#f6ecdd')}</g></svg>\n`);
-fs.writeFileSync(path.join(out, 'logo-mark.svg'),
-  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 54 60" fill="none">${mark('currentColor')}</svg>\n`);
+// El logo y el favicon se generan con `npm run logo:build` (scripts/build-logo.js)
 
 // ---------------------------------------------------------------------------------------------
 // Imagen para compartir en redes (Open Graph) 1200x630

@@ -17,6 +17,7 @@
     "admin:create": "node scripts/create-admin.js",
     "art:generate": "node scripts/generate-art.js",
     "hero:build": "node scripts/build-hero.js",
+    "logo:build": "node scripts/build-logo.js",
     "test": "node --test --test-concurrency=1 \"tests/*.test.js\"",
     "db:import-sqlite": "node scripts/import-sqlite.js"
   },

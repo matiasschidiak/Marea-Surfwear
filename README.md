@@ -397,7 +397,7 @@ tests/                       Pruebas automáticas
 
 - **Colores y tipografías:** variables al inicio de `public/css/main.css` (`--ink`, `--coral`, `--aqua`…). Fuentes: Bricolage Grotesque + DM Sans (Google Fonts), definidas en `src/views/partials/head.ejs`.
 - **Imagen principal (banner):** es un collage con las 6 mallas que se arma solo con las fotos principales de tus productos. Cuando cambies mallas o fotos, corré `npm run hero:build` y recargá la tienda. El fondo (atardecer) es `public/img/hero.svg`; si preferís una foto de playa, reemplazalo por tu foto con el mismo nombre de archivo o cambiá la ruta en `src/views/pages/home.ejs`. La imagen para compartir en redes (`public/img/og-default.jpg`) se genera en el mismo paso.
-- **Logo:** el ícono de ola está en `src/views/partials/icons.ejs` (`i-wave`) y el nombre en *Admin → Configuración* / `src/config.js`.
+- **Logo:** se dibuja en `scripts/build-logo.js` (la M de MAREA con el sol en la V y una ola). Si cambiás colores o formas, corré `npm run logo:build`: regenera los SVG de `public/img/logo/`, el favicon y, en la carpeta `brand/`, los PNG para Instagram, WhatsApp e impresión (versión color, fondo oscuro y una sola tinta). El encabezado y el pie usan `marea-logo.svg` / `marea-logo-sand.svg`, así que el nombre que cargues en *Admin → Configuración* ya no cambia el logo del encabezado (sí el título de la pestaña y los textos).
 - **Preguntas frecuentes:** `src/content/faq.js`.
 - **Métodos de entrega y pago, provincias:** `src/constants.js`.
 - **Textos legales y de envíos:** `src/views/pages/` (`shipping`, `returns`, `terms`).

@@ -3,9 +3,7 @@
   <div class="container footer__grid">
     <div class="footer__brand">
       <a class="logo logo--light" href="/" aria-label="<%= store.brand_name %> <%= store.brand_tagline %>">
-        <%- icon('wave', 'logo__mark') %>
-        <span class="logo__word"><%= store.brand_name %></span>
-        <span class="logo__tag"><%= store.brand_tagline %></span>
+        <img class="logo__img" src="<%= asset('/img/logo/marea-logo-sand.svg') %>" alt="" width="199" height="51" loading="lazy">
       </a>
       <p>Mallas de surf pensadas para el agua, la arena y el verano que no termina.</p>
       <% const socials = [['instagram_url', 'instagram', 'Instagram'], ['tiktok_url', 'tiktok', 'TikTok'], ['facebook_url', 'facebook', 'Facebook']].filter(function (s) { return store[s[0]]; }); %>
