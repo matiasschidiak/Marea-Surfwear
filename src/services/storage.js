@@ -15,7 +15,11 @@ const config = require('../config');
 const { url: baseUrl, serviceKey, bucket } = config.supabase;
 const useSupabase = !!(baseUrl && serviceKey);
 
-const authHeaders = () => ({ apikey: serviceKey, Authorization: `Bearer ${serviceKey}` });
+// Las claves nuevas de Supabase ("sb_secret_...") no son JWT: van solo en el encabezado apikey.
+// La clave clásica service_role (un JWT que empieza con "eyJ") va también como Bearer.
+const authHeaders = () => (serviceKey.startsWith('sb_')
+  ? { apikey: serviceKey }
+  : { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` });
 const encodeKey = (key) => key.split('/').map(encodeURIComponent).join('/');
 
 let bucketReady = null;

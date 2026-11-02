@@ -296,7 +296,7 @@ El archivo `.env` **no se sube** (está en `.gitignore`).
    | `SITE_URL` | tu dominio (ej. `https://www.mareasurfwear.com.ar`); si todavía no tenés, dejalo vacío |
 4. **Deploy.** Al terminar, abrí la dirección `*.vercel.app` que te da Vercel: esa es tu tienda. El panel está en `/admin`.
 
-La función corre en São Paulo (`gru1`, ver `vercel.json`), cerca de tu base de Supabase.
+La función corre en Washington D. C. (`iad1`, ver `vercel.json`), la misma región que tu base de Supabase (US East). Si creás el proyecto de Supabase en otra región, cambiá `regions` en `vercel.json` por la más cercana.
 
 ### Paso 5 · Dominio propio
 En Vercel → **Settings → Domains** agregá tu dominio y seguí las instrucciones para apuntar el DNS. Después poné ese dominio en la variable `SITE_URL` y volvé a desplegar (*Deployments → ⋯ → Redeploy*).
