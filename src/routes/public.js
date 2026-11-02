@@ -24,7 +24,7 @@ function listParam(value) {
   return [...new Set(arr.map((v) => stripTags(v).slice(0, 20)).filter(Boolean))].slice(0, 12);
 }
 
-router.get('/', (req, res) => {
+router.get('/', async (req, res) => {
   const q = stripTags(req.query.q).slice(0, 60);
   const sizes = listParam(req.query.talle).map((s) => s.toUpperCase());
   const colors = listParam(req.query.color);
@@ -34,11 +34,13 @@ router.get('/', (req, res) => {
   const inStock = req.query.stock === '1';
   const filtered = !!(q || sizes.length || colors.length || min !== null || max !== null || inStock);
 
-  const list = products.listPublic({
-    q, sizes, colors, min: min ?? undefined, max: max ?? undefined, sort, inStock,
-  });
-  const featured = (filtered || sort !== 'destacados') ? [] : products.listPublic({ featuredOnly: true, limit: 4 })
-    .filter((p) => !p.soldOut);
+  const [list, featuredAll, facets, cats] = await Promise.all([
+    products.listPublic({ q, sizes, colors, min: min ?? undefined, max: max ?? undefined, sort, inStock }),
+    (filtered || sort !== 'destacados') ? [] : products.listPublic({ featuredOnly: true, limit: 4 }),
+    products.facets(),
+    categories.list({ onlyActive: true }),
+  ]);
+  const featured = featuredAll.filter((p) => !p.soldOut);
 
   res.render('pages/home', {
     meta: {
@@ -50,13 +52,13 @@ router.get('/', (req, res) => {
     products: list,
     featured,
     filters: { q, sizes, colors, min, max, sort, inStock, active: filtered },
-    facets: products.facets(),
-    categories: categories.list({ onlyActive: true }),
+    facets,
+    categories: cats,
   });
 });
 
-router.get('/producto/:slug', (req, res, next) => {
-  const product = products.findBySlug(String(req.params.slug));
+router.get('/producto/:slug', async (req, res, next) => {
+  const product = await products.findBySlug(String(req.params.slug));
   if (!product) return next();
   const desc = truncate(stripTags(product.shortDescription || product.description), 155);
   res.render('pages/product', {
@@ -69,7 +71,7 @@ router.get('/producto/:slug', (req, res, next) => {
       product,
     },
     product,
-    related: products.related(product, 4),
+    related: await products.related(product, 4),
   });
 });
 
@@ -82,16 +84,16 @@ router.get('/checkout', (req, res) => {
   });
 });
 
-router.get('/pedido/:code', (req, res, next) => {
+router.get('/pedido/:code', async (req, res, next) => {
   const code = String(req.params.code).toUpperCase();
   if (!/^MAR-[A-Z0-9]{6}$/.test(code)) return next();
-  const order = ordersRepo.findByCode(code);
+  const order = await ordersRepo.findByCode(code);
   if (!order) return next();
   // No se muestran datos personales: solo código, productos y total.
   res.render('pages/order-done', {
     meta: { title: `Pedido ${order.code} · MAREA Surfwear`, description: '', noindex: true },
     order,
-    fallbackWaUrl: buildUrl(`Hola! Hice el pedido ${order.code} en la web y quiero confirmarlo.`),
+    fallbackWaUrl: buildUrl(`Hola! Hice el pedido ${order.code} en la web y quiero confirmarlo.`, res.locals.waNumber),
   });
 });
 
@@ -124,12 +126,12 @@ router.get('/robots.txt', (req, res) => {
   ].join('\n'));
 });
 
-router.get('/sitemap.xml', (req, res) => {
+router.get('/sitemap.xml', async (req, res) => {
   const urls = [
     { loc: '/', priority: '1.0' },
     ...STATIC_PAGES.map((p) => ({ loc: p.path, priority: '0.5' })),
-    ...products.allForSitemap().map((p) => ({
-      loc: `/producto/${p.slug}`, priority: '0.8', lastmod: p.updated_at.slice(0, 10),
+    ...(await products.allForSitemap()).map((p) => ({
+      loc: `/producto/${p.slug}`, priority: '0.8', lastmod: new Date(p.updated_at).toISOString().slice(0, 10),
     })),
   ];
   const xml = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'

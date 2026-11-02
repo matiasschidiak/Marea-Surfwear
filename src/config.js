@@ -16,11 +16,29 @@ const config = {
   root,
   isProduction,
   port: int(env.PORT, 3000),
-  // En Render, si no se define SITE_URL se usa la dirección .onrender.com del servicio.
-  siteUrl: (env.SITE_URL || env.RENDER_EXTERNAL_URL || `http://localhost:${int(env.PORT, 3000)}`).replace(/\/+$/, ''),
-  trustProxy: env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true',
+  // Sin SITE_URL se usa la dirección que da la plataforma (Vercel o Render) o localhost.
+  siteUrl: (
+    env.SITE_URL
+    || (env.VERCEL_PROJECT_PRODUCTION_URL && `https://${env.VERCEL_PROJECT_PRODUCTION_URL}`)
+    || env.RENDER_EXTERNAL_URL
+    || `http://localhost:${int(env.PORT, 3000)}`
+  ).replace(/\/+$/, ''),
+  trustProxy: env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true' || !!env.VERCEL,
+  onVercel: !!env.VERCEL,
 
-  dbPath: path.resolve(root, env.DATABASE_PATH || 'data/marea.db'),
+  // Base de datos: PostgreSQL. En producción es Supabase (DATABASE_URL). En tu computadora, si no hay
+  // DATABASE_URL, se usa un Postgres embebido (PGlite) guardado en data/pglite: no hay que instalar nada.
+  databaseUrl: env.DATABASE_URL || '',
+  pgliteDir: env.PGLITE_DIR || path.join(root, 'data', 'pglite'),
+  pgPoolMax: int(env.PG_POOL_MAX, 3),
+  legacySqlitePath: path.resolve(root, env.DATABASE_PATH || 'data/marea.db'), // base vieja, solo para importarla
+
+  // Fotos: en Supabase Storage (producción) o en una carpeta local (desarrollo).
+  supabase: {
+    url: (env.SUPABASE_URL || '').replace(/\/+$/, ''),
+    serviceKey: env.SUPABASE_SERVICE_ROLE_KEY || '',
+    bucket: env.SUPABASE_BUCKET || 'productos',
+  },
   uploadsDir: path.resolve(root, env.UPLOADS_DIR || 'public/uploads'),
   uploadsUrl: '/uploads',
 

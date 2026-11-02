@@ -1,6 +1,6 @@
 'use strict';
 const crypto = require('crypto');
-const { getDb } = require('../db');
+const db = require('../db');
 const config = require('../config');
 
 const SCRYPT = { N: 16384, r: 8, p: 1, keylen: 64 };
@@ -35,56 +35,56 @@ const sha256 = (s) => crypto.createHash('sha256').update(s).digest('hex');
 
 const admins = {
   findByEmail(email) {
-    return getDb().prepare('SELECT * FROM admins WHERE email = ? COLLATE NOCASE').get(String(email || '').trim());
+    return db.get('SELECT * FROM admins WHERE lower(email) = lower(?)', [String(email || '').trim()]);
   },
-  create({ email, name, password }) {
+  async create({ email, name, password }) {
     const err = validatePasswordStrength(password);
     if (err) throw new Error(err);
-    const info = getDb().prepare('INSERT INTO admins (email, name, password_hash) VALUES (?, ?, ?)')
-      .run(String(email).trim().toLowerCase(), name || '', hashPassword(password));
-    return Number(info.lastInsertRowid);
+    const row = await db.get('INSERT INTO admins (email, name, password_hash) VALUES (?, ?, ?) RETURNING id',
+      [String(email).trim().toLowerCase(), name || '', hashPassword(password)]);
+    return row.id;
   },
-  setPassword(id, password) {
+  async setPassword(id, password) {
     const err = validatePasswordStrength(password);
     if (err) throw new Error(err);
-    getDb().prepare('UPDATE admins SET password_hash = ? WHERE id = ?').run(hashPassword(password), id);
-    getDb().prepare('DELETE FROM admin_sessions WHERE admin_id = ?').run(id);
+    await db.run('UPDATE admins SET password_hash = ? WHERE id = ?', [hashPassword(password), id]);
+    await db.run('DELETE FROM admin_sessions WHERE admin_id = ?', [id]);
   },
-  count() {
-    return getDb().prepare('SELECT COUNT(*) c FROM admins').get().c;
+  async count() {
+    return (await db.get('SELECT COUNT(*)::int AS c FROM admins')).c;
   },
 };
 
 /** Devuelve el admin si las credenciales son correctas; si no, null. */
-function authenticate(email, password) {
-  const admin = admins.findByEmail(email);
+async function authenticate(email, password) {
+  const admin = await admins.findByEmail(email);
   const ok = verifyPassword(String(password || ''), admin ? admin.password_hash : DUMMY_HASH);
   if (!admin || !admin.active || !ok) return null;
-  getDb().prepare("UPDATE admins SET last_login_at = datetime('now') WHERE id = ?").run(admin.id);
+  await db.run('UPDATE admins SET last_login_at = now() WHERE id = ?', [admin.id]);
   return admin;
 }
 
 const sessions = {
-  create(adminId) {
+  async create(adminId) {
     const token = crypto.randomBytes(32).toString('base64url');
     const csrf = crypto.randomBytes(24).toString('base64url');
     const expires = new Date(Date.now() + config.session.ttlHours * 3600 * 1000);
-    getDb().prepare('INSERT INTO admin_sessions (token_hash, admin_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)')
-      .run(sha256(token), adminId, csrf, expires.toISOString());
-    getDb().prepare('DELETE FROM admin_sessions WHERE expires_at < ?').run(new Date().toISOString());
+    await db.run('INSERT INTO admin_sessions (token_hash, admin_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)',
+      [sha256(token), adminId, csrf, expires.toISOString()]);
+    await db.run('DELETE FROM admin_sessions WHERE expires_at < now()');
     return { token, expires };
   },
-  find(token) {
+  async find(token) {
     if (!token || typeof token !== 'string' || token.length > 100) return null;
-    const row = getDb().prepare(`
-      SELECT s.csrf_token, s.expires_at, a.id AS admin_id, a.email, a.name, a.active
+    const row = await db.get(`
+      SELECT s.csrf_token, a.id AS admin_id, a.email, a.name, a.active
       FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
-      WHERE s.token_hash = ?`).get(sha256(token));
-    if (!row || !row.active || row.expires_at < new Date().toISOString()) return null;
+      WHERE s.token_hash = ? AND s.expires_at > now()`, [sha256(token)]);
+    if (!row || !row.active) return null;
     return { csrf: row.csrf_token, admin: { id: row.admin_id, email: row.email, name: row.name } };
   },
-  destroy(token) {
-    if (token) getDb().prepare('DELETE FROM admin_sessions WHERE token_hash = ?').run(sha256(token));
+  async destroy(token) {
+    if (token) await db.run('DELETE FROM admin_sessions WHERE token_hash = ?', [sha256(token)]);
   },
 };
 

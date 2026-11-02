@@ -16,13 +16,19 @@
     "setup": "node scripts/db-init.js && node scripts/db-seed.js",
     "admin:create": "node scripts/create-admin.js",
     "art:generate": "node scripts/generate-art.js",
-    "test": "node --test --test-concurrency=1 \"tests/*.test.js\""
+    "hero:build": "node scripts/build-hero.js",
+    "test": "node --test --test-concurrency=1 \"tests/*.test.js\"",
+    "db:import-sqlite": "node scripts/import-sqlite.js"
   },
-  "keywords": ["surf", "ecommerce", "whatsapp"],
+  "keywords": [
+    "surf",
+    "ecommerce",
+    "whatsapp"
+  ],
   "license": "UNLICENSED",
   "type": "commonjs",
   "dependencies": {
-    "better-sqlite3": "^13.0.3",
+    "@vercel/functions": "3.6.1",
     "compression": "^1.8.2",
     "dotenv": "^18.0.5",
     "ejs": "^7.0.1",
@@ -30,6 +36,12 @@
     "express-rate-limit": "^8.7.0",
     "helmet": "^8.3.0",
     "multer": "^2.4.0",
+    "pg": "^8.23.1",
     "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.14",
+    "@electric-sql/pglite-socket": "^0.2.17",
+    "better-sqlite3": "^13.0.3"
   }
 }

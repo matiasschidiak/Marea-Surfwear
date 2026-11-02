@@ -178,18 +178,12 @@ ul, ol { margin: 0; padding: 0; list-style: none; }
 .hero h1 span { display: block; font-size: .42em; letter-spacing: .02em; font-weight: 700; color: var(--ocean); margin-top: .2em; }
 .hero__lead { font-size: 1.1rem; max-width: 34ch; color: var(--ink); font-weight: 500; margin-bottom: 1.6rem; }
 .hero__cta { display: flex; flex-direction: column; gap: 12px; max-width: 360px; }
-.hero__card { display: none; }
+.hero__collage { display: block; width: min(100%, 520px); height: auto; align-self: center; margin-top: 4px; }
 @media (min-width: 560px) { .hero__cta { flex-direction: row; max-width: none; flex-wrap: wrap; } }
 @media (min-width: 900px) {
   .hero__inner { flex-direction: row; align-items: center; justify-content: space-between; padding-block: 72px; }
   .hero__shade { background: linear-gradient(90deg, rgba(255, 253, 249, .78) 0%, rgba(255, 253, 249, .5) 35%, rgba(255, 253, 249, 0) 62%); }
-  .hero__card {
-    display: block; position: relative; width: 300px; border-radius: 24px; overflow: hidden; background: #fff; box-shadow: var(--shadow-md);
-    transform: rotate(3deg); transition: transform .4s var(--ease); margin-top: 90px; text-decoration: none;
-  }
-  .hero__card:hover { transform: rotate(0) translateY(-6px); }
-  .hero__card img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; }
-  .hero__card-info { display: flex; justify-content: space-between; gap: 10px; padding: 14px 16px; font-size: .95rem; }
+  .hero__collage { flex: 0 0 min(52%, 640px); width: min(52%, 640px); margin: 0 0 0 auto; }
 }
 
 /* ---------- Beneficios ---------- */
@@ -646,3 +640,8 @@ fieldset.card-box { min-inline-size: 0; }
   .gallery { position: static; }
   .toasts { bottom: 8px; }
 }
+
+/* Migas de pan: una sola línea; si el nombre del producto es largo se corta con "…" */
+.breadcrumbs ol { flex-wrap: nowrap; }
+.breadcrumbs li { flex: none; }
+.breadcrumbs li[aria-current] { flex: 0 1 auto; min-width: 0; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 44px; }

@@ -10,6 +10,7 @@ const settings = require('../repositories/settings');
 const { sizes, categories } = require('../repositories/catalog-lookups');
 const images = require('../services/images');
 const auth = require('../services/auth');
+const { DbStore } = require('../services/rate-limit-store');
 const { changeStatus, updateAdminNotes, OrderError } = require('../services/orders');
 const { STATUS_BY_VALUE } = require('../constants');
 const { cleanLine, cleanText, toInt, validatePhone } = require('../utils/validation');
@@ -24,9 +25,11 @@ const upload = multer({
   fileFilter: (req, file, cb) => cb(null, /^image\//.test(file.mimetype)),
 });
 
+// El contador de intentos vive en la base: sirve aunque Vercel atienda cada petición con otra instancia
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, limit: 8, standardHeaders: 'draft-7', legacyHeaders: false,
   skip: () => isTest,
+  store: new DbStore('login:'), passOnStoreError: true,
   handler: (req, res) => res.status(429).render('admin/login', {
     title: 'Ingresar', error: 'Demasiados intentos. Esperá unos minutos e intentá de nuevo.',
     email: '', next: '/admin', loginCsrf: '',
@@ -78,7 +81,7 @@ router.get('/login', (req, res) => {
   });
 });
 
-router.post('/login', loginLimiter, (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const email = cleanLine(req.body.email, 120);
   const sent = String(req.body._lcsrf || '');
   const have = loginCookie(req);
@@ -87,16 +90,16 @@ router.post('/login', loginLimiter, (req, res) => {
     title: 'Ingresar', error, email, next: safeNext(req.body.next), loginCsrf: issueLoginToken(res),
   });
   if (!tokenOk) return fail('La página venció. Intentá de nuevo.', 403);
-  const admin = auth.authenticate(email, String(req.body.password || '').slice(0, 200));
+  const admin = await auth.authenticate(email, String(req.body.password || '').slice(0, 200));
   if (!admin) return fail('Email o contraseña incorrectos.');
-  const { token, expires } = auth.sessions.create(admin.id);
+  const { token, expires } = await auth.sessions.create(admin.id);
   setSessionCookie(res, token, expires);
   res.clearCookie(LOGIN_COOKIE, { path: '/admin' });
   res.redirect(safeNext(req.body.next));
 });
 
-router.post('/logout', requireAdmin, verifyCsrf, (req, res) => {
-  auth.sessions.destroy(req.sessionToken);
+router.post('/logout', requireAdmin, verifyCsrf, async (req, res) => {
+  await auth.sessions.destroy(req.sessionToken);
   clearSessionCookie(res);
   res.redirect('/admin/login');
 });
@@ -104,25 +107,30 @@ router.post('/logout', requireAdmin, verifyCsrf, (req, res) => {
 // ---- Todo lo que sigue exige sesión de administrador --------------------------------------------
 router.use(requireAdmin);
 
-router.get('/', (req, res) => {
-  const stats = ordersRepo.stats();
-  const counts = products.countAll();
+router.get('/', async (req, res) => {
+  const [stats, counts, lowStock, recent, threshold] = await Promise.all([
+    ordersRepo.stats(),
+    products.countAll(),
+    products.lowStockVariants(),
+    ordersRepo.list({ limit: 6 }),
+    settings.getInt('low_stock_threshold', 3),
+  ]);
   res.render('admin/dashboard', {
     title: 'Resumen',
     stats: { ...stats, products: counts },
-    lowStock: products.lowStockVariants(),
-    recent: ordersRepo.list({ limit: 6 }).rows,
-    threshold: settings.getInt('low_stock_threshold', 3),
+    lowStock,
+    recent: recent.rows,
+    threshold,
   });
 });
 
 // ---- Productos ------------------------------------------------------------------------------------
-router.get('/productos', (req, res) => {
-  res.render('admin/products', { title: 'Productos', list: products.listAdmin() });
+router.get('/productos', async (req, res) => {
+  res.render('admin/products', { title: 'Productos', list: await products.listAdmin() });
 });
 
-function sizeRowsFor(product, submitted) {
-  const all = sizes.list();
+async function sizeRowsFor(product, submitted) {
+  const all = await sizes.list();
   const byId = new Map((product ? product.variants : []).map((v) => [v.size_id, v]));
   return all.map((s) => {
     if (submitted) {
@@ -134,7 +142,8 @@ function sizeRowsFor(product, submitted) {
   });
 }
 
-function renderForm(res, { product = null, submitted = null, errors = {}, status = 200 }) {
+async function renderForm(res, { product = null, submitted = null, errors = {}, status = 200 }) {
+  const allCategories = await categories.list();
   const form = submitted
     ? {
       name: submitted.name || '', shortDescription: submitted.shortDescription || '', description: submitted.description || '',
@@ -152,28 +161,28 @@ function renderForm(res, { product = null, submitted = null, errors = {}, status
       }
       : {
         name: '', shortDescription: '', description: '', material: '', color: '', features: '', price: '', comparePrice: '',
-        categoryId: (categories.list()[0] || {}).id || '', active: true, featured: false, newCategory: '', newSizes: '',
+        categoryId: (allCategories[0] || {}).id || '', active: true, featured: false, newCategory: '', newSizes: '',
       };
   res.status(status).render('admin/product-form', {
     title: product ? `Editar ${product.name}` : 'Nuevo producto',
     product, form, errors,
-    sizeRows: sizeRowsFor(product, submitted),
-    categories: categories.list(),
-    colorSuggestions: products.allColors(),
+    sizeRows: await sizeRowsFor(product, submitted),
+    categories: allCategories,
+    colorSuggestions: await products.allColors(),
   });
 }
 
 router.get('/productos/nuevo', (req, res) => renderForm(res, {}));
 
-router.get('/productos/:id', (req, res, next) => {
+router.get('/productos/:id', async (req, res, next) => {
   const id = toInt(req.params.id, { min: 1 });
-  const product = id && products.findById(id);
+  const product = id && await products.findById(id);
   if (!product) return next();
-  renderForm(res, { product });
+  await renderForm(res, { product });
 });
 
 /** Valida el formulario de producto. Devuelve { errors, data, variants }. */
-function parseProductForm(body) {
+async function parseProductForm(body) {
   const errors = {};
   const data = {};
   data.name = cleanLine(body.name, 120);
@@ -198,14 +207,14 @@ function parseProductForm(body) {
 
   const newCat = cleanLine(body.newCategory, 60);
   if (newCat) {
-    data.categoryId = (categories.findOrCreate(newCat) || {}).id || null;
+    data.categoryId = ((await categories.findOrCreate(newCat)) || {}).id || null;
   } else {
     const cid = toInt(body.categoryId, { min: 1 });
-    data.categoryId = cid && categories.findById(cid) ? cid : null;
+    data.categoryId = cid && await categories.findById(cid) ? cid : null;
   }
 
   const variants = [];
-  for (const s of sizes.list()) {
+  for (const s of await sizes.list()) {
     if (body[`offer_${s.id}`] !== '1') continue;
     const stock = toInt(String(body[`stock_${s.id}`] ?? '').trim() === '' ? 0 : body[`stock_${s.id}`], { min: 0, max: 100000 });
     if (stock === null) errors[`stock_${s.id}`] = `Stock inválido para el talle ${s.name}.`;
@@ -217,24 +226,24 @@ function parseProductForm(body) {
 
 async function applyImages(productId, productName, body, files) {
   const problems = [];
-  const existing = (products.findById(productId) || { images: [] }).images;
+  const existing = ((await products.findById(productId)) || { images: [] }).images;
   for (const img of existing) {
     if (body[`img_delete_${img.id}`] === '1') {
-      const url = products.removeImage(img.id, productId);
-      images.deleteFiles(url);
+      const url = await products.removeImage(img.id, productId);
+      await images.deleteFiles(url);
     } else {
       const order = toInt(body[`img_order_${img.id}`], { min: 0, max: 999 });
-      products.updateImage(img.id, productId, {
+      await products.updateImage(img.id, productId, {
         alt: cleanLine(body[`img_alt_${img.id}`], 160), sortOrder: order ?? img.sort_order,
       });
     }
   }
-  let count = products.countImages(productId);
+  let count = await products.countImages(productId);
   for (const file of files || []) {
     if (count >= config.limits.maxImagesPerProduct) { problems.push('Se alcanzó el máximo de imágenes por producto.'); break; }
     try {
       const url = await images.saveUpload(file.buffer);
-      products.addImage(productId, url, productName);
+      await products.addImage(productId, url, productName);
       count++;
     } catch (err) {
       problems.push(`${file.originalname}: ${err.message}`);
@@ -253,17 +262,17 @@ function handleUpload(req, res, next) {
 }
 
 async function saveProduct(req, res, id) {
-  const { errors, data, variants, extraSizes } = parseProductForm(req.body);
-  const product = id ? products.findById(id) : null;
+  const { errors, data, variants, extraSizes } = await parseProductForm(req.body);
+  const product = id ? await products.findById(id) : null;
   if (Object.keys(errors).length) {
     return renderForm(res, { product, submitted: req.body, errors, status: 422 });
   }
   for (const name of extraSizes) {
-    const s = sizes.findOrCreate(name);
+    const s = await sizes.findOrCreate(name);
     if (s && !variants.some((v) => v.sizeId === s.id)) variants.push({ sizeId: s.id, stock: 0 });
   }
-  const productId = products.save(data, id);
-  products.setVariants(productId, variants);
+  const productId = await products.save(data, id);
+  await products.setVariants(productId, variants);
   const problems = await applyImages(productId, data.name, req.body, req.files);
   flash(res, problems.length ? 'error' : 'ok',
     problems.length ? `Producto guardado, pero: ${problems.join(' ')}` : 'Producto guardado correctamente.');
@@ -272,43 +281,42 @@ async function saveProduct(req, res, id) {
 
 router.post('/productos', handleUpload, verifyCsrf, (req, res) => saveProduct(req, res, null));
 
-router.post('/productos/:id', handleUpload, verifyCsrf, (req, res, next) => {
+router.post('/productos/:id', handleUpload, verifyCsrf, async (req, res, next) => {
   const id = toInt(req.params.id, { min: 1 });
-  if (!id || !products.findById(id)) return next();
+  if (!id || !(await products.findById(id))) return next();
   return saveProduct(req, res, id);
 });
 
-router.post('/productos/:id/toggle', verifyCsrf, (req, res, next) => {
+router.post('/productos/:id/toggle', verifyCsrf, async (req, res, next) => {
   const id = toInt(req.params.id, { min: 1 });
   const field = req.body.field;
-  if (!id || !products.findById(id) || !['active', 'featured'].includes(field)) return next();
-  products.setFlag(id, field, req.body.value === '1');
+  if (!id || !['active', 'featured'].includes(field) || !(await products.findById(id))) return next();
+  await products.setFlag(id, field, req.body.value === '1');
   flash(res, 'ok', field === 'active'
     ? (req.body.value === '1' ? 'Producto activado: ya se ve en la tienda.' : 'Producto desactivado: ya no se muestra en la tienda.')
     : (req.body.value === '1' ? 'Producto marcado como destacado.' : 'Producto quitado de destacados.'));
   res.redirect('/admin/productos');
 });
 
-router.post('/productos/:id/eliminar', verifyCsrf, (req, res, next) => {
+router.post('/productos/:id/eliminar', verifyCsrf, async (req, res, next) => {
   const id = toInt(req.params.id, { min: 1 });
-  if (!id || !products.findById(id)) return next();
-  for (const url of products.remove(id)) images.deleteFiles(url);
+  if (!id || !(await products.findById(id))) return next();
+  for (const url of await products.remove(id)) await images.deleteFiles(url);
   flash(res, 'ok', 'Producto eliminado. Los pedidos anteriores conservan su detalle.');
   res.redirect('/admin/productos');
 });
 
 // ---- Stock rápido ---------------------------------------------------------------------------------
-router.get('/stock', (req, res) => {
-  res.render('admin/stock', {
-    title: 'Stock', list: products.listAdmin(), threshold: settings.getInt('low_stock_threshold', 3),
-  });
+router.get('/stock', async (req, res) => {
+  const [list, threshold] = await Promise.all([products.listAdmin(), settings.getInt('low_stock_threshold', 3)]);
+  res.render('admin/stock', { title: 'Stock', list, threshold });
 });
 
-router.post('/stock', verifyCsrf, (req, res) => {
+router.post('/stock', verifyCsrf, async (req, res) => {
   let changed = 0;
   const bad = [];
   const current = new Map();
-  for (const p of products.listAdmin()) for (const v of p.variants) current.set(v.id, v.stock);
+  for (const p of await products.listAdmin()) for (const v of p.variants) current.set(v.id, v.stock);
   for (const [key, raw] of Object.entries(req.body)) {
     const m = /^stock_(\d+)$/.exec(key);
     if (!m) continue;
@@ -316,7 +324,7 @@ router.post('/stock', verifyCsrf, (req, res) => {
     if (!current.has(variantId)) continue;
     const stock = toInt(String(raw).trim(), { min: 0, max: 100000 });
     if (stock === null) { bad.push(variantId); continue; }
-    if (stock !== current.get(variantId)) { products.updateVariantStock(variantId, stock); changed++; }
+    if (stock !== current.get(variantId)) { await products.updateVariantStock(variantId, stock); changed++; }
   }
   if (bad.length) flash(res, 'error', 'Algunos valores no eran válidos y se ignoraron (usá números enteros, 0 o más).');
   else flash(res, 'ok', changed ? `Stock actualizado (${changed} cambio${changed === 1 ? '' : 's'}).` : 'No había cambios para guardar.');
@@ -324,30 +332,33 @@ router.post('/stock', verifyCsrf, (req, res) => {
 });
 
 // ---- Pedidos --------------------------------------------------------------------------------------
-router.get('/pedidos', (req, res) => {
+router.get('/pedidos', async (req, res) => {
   const status = STATUS_BY_VALUE[req.query.estado] ? req.query.estado : '';
   const q = cleanLine(req.query.q, 60);
   const page = toInt(req.query.p, { min: 1, max: 10000 }) || 1;
   const pageSize = 25;
-  const { rows, total } = ordersRepo.list({ status, q, limit: pageSize, offset: (page - 1) * pageSize });
+  const [{ rows, total }, counts] = await Promise.all([
+    ordersRepo.list({ status, q, limit: pageSize, offset: (page - 1) * pageSize }),
+    ordersRepo.countsByStatus(),
+  ]);
   res.render('admin/orders', {
     title: 'Pedidos', rows, total, page, pages: Math.max(1, Math.ceil(total / pageSize)),
-    status, q, counts: ordersRepo.countsByStatus(),
+    status, q, counts,
   });
 });
 
-router.get('/pedidos/:id', (req, res, next) => {
+router.get('/pedidos/:id', async (req, res, next) => {
   const id = toInt(req.params.id, { min: 1 });
-  const order = id && ordersRepo.findById(id);
+  const order = id && await ordersRepo.findById(id);
   if (!order) return next();
-  res.render('admin/order', { title: `Pedido ${order.code}`, order, history: ordersRepo.history(order.id) });
+  res.render('admin/order', { title: `Pedido ${order.code}`, order, history: await ordersRepo.history(order.id) });
 });
 
-router.post('/pedidos/:id/estado', verifyCsrf, (req, res, next) => {
+router.post('/pedidos/:id/estado', verifyCsrf, async (req, res, next) => {
   const id = toInt(req.params.id, { min: 1 });
-  if (!id || !ordersRepo.findById(id)) return next();
+  if (!id || !(await ordersRepo.findById(id))) return next();
   try {
-    changeStatus(id, String(req.body.status), req.admin.id);
+    await changeStatus(id, String(req.body.status), req.admin.id);
     flash(res, 'ok', 'Estado actualizado.');
   } catch (err) {
     if (!(err instanceof OrderError)) throw err;
@@ -356,20 +367,20 @@ router.post('/pedidos/:id/estado', verifyCsrf, (req, res, next) => {
   res.redirect(`/admin/pedidos/${id}`);
 });
 
-router.post('/pedidos/:id/notas', verifyCsrf, (req, res, next) => {
+router.post('/pedidos/:id/notas', verifyCsrf, async (req, res, next) => {
   const id = toInt(req.params.id, { min: 1 });
-  if (!id || !ordersRepo.findById(id)) return next();
-  updateAdminNotes(id, cleanText(req.body.notes, 1000));
+  if (!id || !(await ordersRepo.findById(id))) return next();
+  await updateAdminNotes(id, cleanText(req.body.notes, 1000));
   flash(res, 'ok', 'Notas guardadas.');
   res.redirect(`/admin/pedidos/${id}`);
 });
 
 // ---- Configuración de la tienda -------------------------------------------------------------------
-router.get('/configuracion', (req, res) => {
-  res.render('admin/settings', { title: 'Configuración', values: settings.all(), errors: {} });
+router.get('/configuracion', async (req, res) => {
+  res.render('admin/settings', { title: 'Configuración', values: await settings.all(), errors: {} });
 });
 
-router.post('/configuracion', verifyCsrf, (req, res) => {
+router.post('/configuracion', verifyCsrf, async (req, res) => {
   const b = req.body;
   const errors = {};
   const values = {
@@ -389,9 +400,9 @@ router.post('/configuracion', verifyCsrf, (req, res) => {
   }
   if (values.low_stock_threshold === '') errors.low_stock_threshold = 'Ingresá un número entre 0 y 100.';
   if (Object.keys(errors).length) {
-    return res.status(422).render('admin/settings', { title: 'Configuración', values: { ...settings.all(), ...values }, errors });
+    return res.status(422).render('admin/settings', { title: 'Configuración', values: { ...(await settings.all()), ...values }, errors });
   }
-  settings.setMany(values);
+  await settings.setMany(values);
   flash(res, 'ok', 'Configuración guardada.');
   res.redirect('/admin/configuracion');
 });
@@ -399,17 +410,17 @@ router.post('/configuracion', verifyCsrf, (req, res) => {
 // ---- Cuenta ---------------------------------------------------------------------------------------
 router.get('/cuenta', (req, res) => res.render('admin/account', { title: 'Mi cuenta', error: null }));
 
-router.post('/cuenta', verifyCsrf, (req, res) => {
-  const admin = auth.admins.findByEmail(req.admin.email);
+router.post('/cuenta', verifyCsrf, async (req, res) => {
+  const admin = await auth.admins.findByEmail(req.admin.email);
   const fail = (error) => res.status(422).render('admin/account', { title: 'Mi cuenta', error });
   if (!auth.verifyPassword(String(req.body.current || ''), admin.password_hash)) return fail('La contraseña actual no es correcta.');
   if (req.body.password !== req.body.confirm) return fail('Las contraseñas nuevas no coinciden.');
   try {
-    auth.admins.setPassword(admin.id, String(req.body.password));
+    await auth.admins.setPassword(admin.id, String(req.body.password));
   } catch (err) {
     return fail(err.message);
   }
-  const { token, expires } = auth.sessions.create(admin.id); // setPassword cierra todas las sesiones
+  const { token, expires } = await auth.sessions.create(admin.id); // setPassword cierra todas las sesiones
   setSessionCookie(res, token, expires);
   flash(res, 'ok', 'Contraseña actualizada.');
   res.redirect('/admin/cuenta');

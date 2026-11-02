@@ -1,60 +1,61 @@
 'use strict';
-const { getDb } = require('../db');
+const db = require('../db');
 
-function attachItems(order) {
+const TZ = 'America/Argentina/Buenos_Aires';
+
+async function attachItems(order) {
   if (!order) return null;
-  order.items = getDb().prepare('SELECT * FROM order_items WHERE order_id = ? ORDER BY id').all(order.id);
+  order.items = await db.all('SELECT * FROM order_items WHERE order_id = ? ORDER BY id', [order.id]);
   return order;
 }
 
-function findById(id) {
-  return attachItems(getDb().prepare('SELECT * FROM orders WHERE id = ?').get(id));
+async function findById(id) {
+  return attachItems(await db.get('SELECT * FROM orders WHERE id = ?', [id]));
 }
 
-function findByCode(code) {
-  return attachItems(getDb().prepare('SELECT * FROM orders WHERE code = ?').get(code));
+async function findByCode(code) {
+  return attachItems(await db.get('SELECT * FROM orders WHERE code = ?', [code]));
 }
 
 function history(orderId) {
-  return getDb().prepare(`
+  return db.all(`
     SELECT h.status, h.created_at, a.name AS admin_name, a.email AS admin_email
     FROM order_status_history h LEFT JOIN admins a ON a.id = h.admin_id
-    WHERE h.order_id = ? ORDER BY h.id`).all(orderId);
+    WHERE h.order_id = ? ORDER BY h.id`, [orderId]);
 }
 
 /** Lista paginada con filtros por estado y búsqueda (código, nombre, teléfono). */
-function list({ status, q, limit = 25, offset = 0 } = {}) {
+async function list({ status, q, limit = 25, offset = 0 } = {}) {
   const where = [];
   const params = [];
   if (status) { where.push('o.status = ?'); params.push(status); }
   if (q) {
     const like = `%${q.replace(/[\\%_]/g, (c) => '\\' + c)}%`;
-    where.push(`(o.code LIKE ? ESCAPE '\\' OR o.customer_first_name LIKE ? ESCAPE '\\'
-                 OR o.customer_last_name LIKE ? ESCAPE '\\' OR o.customer_phone LIKE ? ESCAPE '\\')`);
+    where.push(`(o.code ILIKE ? ESCAPE '\\' OR o.customer_first_name ILIKE ? ESCAPE '\\'
+                 OR o.customer_last_name ILIKE ? ESCAPE '\\' OR o.customer_phone ILIKE ? ESCAPE '\\')`);
     params.push(like, like, like, like);
   }
   const w = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const db = getDb();
-  const total = db.prepare(`SELECT COUNT(*) c FROM orders o ${w}`).get(...params).c;
-  const rows = db.prepare(`
-    SELECT o.*, (SELECT COALESCE(SUM(quantity), 0) FROM order_items i WHERE i.order_id = o.id) AS units
-    FROM orders o ${w} ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?`).all(...params, limit, offset);
+  const total = (await db.get(`SELECT COUNT(*)::int AS c FROM orders o ${w}`, params)).c;
+  const rows = await db.all(`
+    SELECT o.*, (SELECT COALESCE(SUM(quantity), 0)::int FROM order_items i WHERE i.order_id = o.id) AS units
+    FROM orders o ${w} ORDER BY o.created_at DESC, o.id DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
   return { rows, total };
 }
 
-function countsByStatus() {
-  const rows = getDb().prepare('SELECT status, COUNT(*) c FROM orders GROUP BY status').all();
+async function countsByStatus() {
+  const rows = await db.all('SELECT status, COUNT(*)::int AS c FROM orders GROUP BY status');
   return Object.fromEntries(rows.map((r) => [r.status, r.c]));
 }
 
-function stats() {
-  const db = getDb();
-  return {
-    pending: db.prepare("SELECT COUNT(*) c FROM orders WHERE status = 'pendiente'").get().c,
-    today: db.prepare("SELECT COUNT(*) c FROM orders WHERE date(created_at) = date('now')").get().c,
-    revenue30d: db.prepare(`SELECT COALESCE(SUM(total), 0) s FROM orders
-                            WHERE status NOT IN ('cancelado') AND created_at >= datetime('now', '-30 days')`).get().s,
-  };
+async function stats() {
+  const row = await db.get(`
+    SELECT
+      COUNT(*) FILTER (WHERE status = 'pendiente')::int AS pending,
+      COUNT(*) FILTER (WHERE created_at >= (date_trunc('day', now() AT TIME ZONE '${TZ}') AT TIME ZONE '${TZ}'))::int AS today,
+      COALESCE(SUM(total) FILTER (WHERE status <> 'cancelado' AND created_at >= now() - interval '30 days'), 0)::int AS revenue30d
+    FROM orders`);
+  return { pending: row.pending, today: row.today, revenue30d: row.revenue30d };
 }
 
 module.exports = { findById, findByCode, history, list, countsByStatus, stats };

@@ -51,16 +51,17 @@ function buildOrderMessage(order) {
   return lines.join('\n');
 }
 
-function whatsappNumber() {
-  return String(settings.get('whatsapp_number')).replace(/\D/g, '');
+/** Número configurado (solo dígitos, con código de país). */
+async function whatsappNumber() {
+  return String((await settings.get('whatsapp_number')) || '').replace(/\D/g, '');
 }
 
-function buildUrl(text, number = whatsappNumber()) {
+function buildUrl(text, number) {
   return `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
 }
 
-function buildOrderUrl(order) {
-  return buildUrl(buildOrderMessage(order));
+async function buildOrderUrl(order) {
+  return buildUrl(buildOrderMessage(order), await whatsappNumber());
 }
 
 module.exports = { buildOrderMessage, buildOrderUrl, buildUrl, whatsappNumber };

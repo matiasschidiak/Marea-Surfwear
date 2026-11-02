@@ -1,6 +1,6 @@
 'use strict';
 // Categorías y talles: tablas de apoyo del catálogo.
-const { getDb } = require('../db');
+const db = require('../db');
 const { slugify } = require('../utils/format');
 
 const DEFAULT_SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'ÚNICO', 'UNICO'];
@@ -8,53 +8,51 @@ const DEFAULT_SIZE_ORDER = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'Ú
 const categories = {
   list({ onlyActive = false } = {}) {
     const where = onlyActive ? 'WHERE active = 1' : '';
-    return getDb().prepare(`SELECT * FROM categories ${where} ORDER BY sort_order, name`).all();
+    return db.all(`SELECT * FROM categories ${where} ORDER BY sort_order, name`);
   },
   findById(id) {
-    return getDb().prepare('SELECT * FROM categories WHERE id = ?').get(id);
+    return db.get('SELECT * FROM categories WHERE id = ?', [id]);
   },
   findBySlug(slug) {
-    return getDb().prepare('SELECT * FROM categories WHERE slug = ?').get(slug);
+    return db.get('SELECT * FROM categories WHERE slug = ?', [slug]);
   },
-  findOrCreate(name) {
-    const db = getDb();
+  async findOrCreate(name) {
     const clean = String(name).trim().slice(0, 60);
     const slug = slugify(clean);
     if (!slug) return null;
-    const found = db.prepare('SELECT * FROM categories WHERE slug = ?').get(slug);
+    const found = await db.get('SELECT * FROM categories WHERE slug = ?', [slug]);
     if (found) return found;
-    const max = db.prepare('SELECT COALESCE(MAX(sort_order), 0) m FROM categories').get().m;
-    const info = db.prepare('INSERT INTO categories (name, slug, sort_order) VALUES (?, ?, ?)').run(clean, slug, max + 1);
-    return categories.findById(info.lastInsertRowid);
+    const { m } = await db.get('SELECT COALESCE(MAX(sort_order), 0) AS m FROM categories');
+    // ON CONFLICT: si dos personas la crean a la vez, gana la primera y la otra la lee
+    const row = await db.get(
+      'INSERT INTO categories (name, slug, sort_order) VALUES (?, ?, ?) ON CONFLICT (slug) DO NOTHING RETURNING *',
+      [clean, slug, m + 1]
+    );
+    return row || categories.findBySlug(slug);
   },
 };
 
 const sizes = {
   list() {
-    return getDb().prepare('SELECT * FROM sizes ORDER BY sort_order, name').all();
+    return db.all('SELECT * FROM sizes ORDER BY sort_order, name');
   },
   findByName(name) {
-    return getDb().prepare('SELECT * FROM sizes WHERE name = ? COLLATE NOCASE').get(String(name).trim());
+    return db.get('SELECT * FROM sizes WHERE lower(name) = lower(?)', [String(name).trim()]);
   },
-  findOrCreate(name) {
+  async findOrCreate(name) {
     const clean = String(name).trim().toUpperCase().slice(0, 12);
     if (!clean) return null;
-    const found = sizes.findByName(clean);
+    const found = await sizes.findByName(clean);
     if (found) return found;
-    const db = getDb();
     const known = DEFAULT_SIZE_ORDER.indexOf(clean);
-    const order = known >= 0 ? known * 10 : db.prepare('SELECT COALESCE(MAX(sort_order), 0) m FROM sizes').get().m + 10;
-    const info = db.prepare('INSERT INTO sizes (name, sort_order) VALUES (?, ?)').run(clean, order);
-    return db.prepare('SELECT * FROM sizes WHERE id = ?').get(info.lastInsertRowid);
-  },
-  /** Talles que tienen stock en algún producto activo (para el filtro público). */
-  inStockNames() {
-    return getDb().prepare(`
-      SELECT DISTINCT s.name FROM sizes s
-      JOIN product_variants v ON v.size_id = s.id
-      JOIN products p ON p.id = v.product_id
-      WHERE p.active = 1
-      ORDER BY s.sort_order, s.name`).all().map((r) => r.name);
+    let order;
+    if (known >= 0) order = known * 10;
+    else order = (await db.get('SELECT COALESCE(MAX(sort_order), 0) AS m FROM sizes')).m + 10;
+    const row = await db.get(
+      'INSERT INTO sizes (name, sort_order) VALUES (?, ?) ON CONFLICT (lower(name)) DO NOTHING RETURNING *',
+      [clean, order]
+    );
+    return row || sizes.findByName(clean);
   },
 };
 

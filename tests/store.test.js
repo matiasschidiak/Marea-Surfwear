@@ -9,7 +9,7 @@ let items;
 
 before(async () => {
   t = await startTestServer();
-  ocean = t.addProduct('Malla Ocean Blue', 45000, { XS: 2, S: 5, M: 7, L: 3, XL: 0 }, { featured: true });
+  ocean = await t.addProduct('Malla Ocean Blue', 45000, { XS: 2, S: 5, M: 7, L: 3, XL: 0 }, { featured: true });
   items = (size, qty) => [{ variantId: t.variantId(ocean, size), qty }];
 });
 after(async () => { await t.close(); });
@@ -26,18 +26,18 @@ test('el catálogo público muestra productos y talles agotados', async () => {
 });
 
 test('un pedido válido descuenta el stock del talle y usa precios del servidor', async () => {
-  const before = t.stockOf(t.variantId(ocean, 'M'));
+  const before = await t.stockOf(t.variantId(ocean, 'M'));
   const r = await t.post('/api/orders', { ...validCustomer(), items: [{ variantId: t.variantId(ocean, 'M'), qty: 2, price: 1 }] });
   assert.equal(r.status, 201, JSON.stringify(r.json));
   assert.equal(r.json.total, 90000, 'el total sale de la base, no de lo que manda el navegador');
-  assert.equal(t.stockOf(t.variantId(ocean, 'M')), before - 2);
+  assert.equal(await t.stockOf(t.variantId(ocean, 'M')), before - 2);
   assert.match(r.json.code, /^MAR-[A-Z0-9]{6}$/);
-  const order = t.db.prepare('SELECT * FROM orders WHERE code = ?').get(r.json.code);
+  const order = await t.db.get('SELECT * FROM orders WHERE code = ?', [r.json.code]);
   assert.equal(order.status, 'pendiente');
-  const it = t.db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(order.id);
+  const it = await t.db.all('SELECT * FROM order_items WHERE order_id = ?', [order.id]);
   assert.equal(it.length, 1);
   assert.deepEqual([it[0].product_name, it[0].size_name, it[0].quantity, it[0].unit_price, it[0].subtotal], ['Malla Ocean Blue', 'M', 2, 45000, 90000]);
-  assert.equal(t.db.prepare('SELECT COUNT(*) c FROM customers').get().c >= 1, true);
+  assert.equal((await t.db.get('SELECT COUNT(*) c FROM customers', [])).c >= 1, true);
 });
 
 test('el mensaje de WhatsApp va al +54 299 415-4002 con el pedido completo', async () => {
@@ -57,7 +57,7 @@ test('el mensaje de WhatsApp va al +54 299 415-4002 con el pedido completo', asy
 test('no se puede comprar más que el stock ni un talle agotado', async () => {
   const xl = t.variantId(ocean, 'XL');
   const l = t.variantId(ocean, 'L');
-  const stockL = t.stockOf(l);
+  const stockL = await t.stockOf(l);
 
   let r = await t.post('/api/orders', { ...validCustomer(), items: [{ variantId: xl, qty: 1 }] });
   assert.equal(r.status, 409);
@@ -67,26 +67,26 @@ test('no se puede comprar más que el stock ni un talle agotado', async () => {
   assert.equal(r.status, 409);
   assert.equal(r.json.problems[0].code, 'insufficient_stock');
   assert.equal(r.json.problems[0].available, stockL);
-  assert.equal(t.stockOf(l), stockL, 'el stock no cambia si el pedido falla');
+  assert.equal(await t.stockOf(l), stockL, 'el stock no cambia si el pedido falla');
 });
 
 test('si una línea falla no se descuenta nada de las otras (atómico)', async () => {
   const s = t.variantId(ocean, 'S');
   const xl = t.variantId(ocean, 'XL');
-  const before = t.stockOf(s);
+  const before = await t.stockOf(s);
   const r = await t.post('/api/orders', { ...validCustomer(), items: [{ variantId: s, qty: 1 }, { variantId: xl, qty: 1 }] });
   assert.equal(r.status, 409);
-  assert.equal(t.stockOf(s), before);
+  assert.equal(await t.stockOf(s), before);
 });
 
 test('pedidos simultáneos por la última unidad: solo uno se confirma', async () => {
-  const p = t.addProduct('Malla Última', 30000, { M: 1 });
+  const p = await t.addProduct('Malla Última', 30000, { M: 1 });
   const v = t.variantId(p, 'M');
   const results = await Promise.all(Array.from({ length: 8 }, () => t.post('/api/orders', { ...validCustomer(), items: [{ variantId: v, qty: 1 }] })));
   const ok = results.filter((r) => r.status === 201).length;
   assert.equal(ok, 1);
-  assert.equal(t.stockOf(v), 0);
-  assert.equal(t.db.prepare("SELECT COALESCE(SUM(quantity),0) q FROM order_items WHERE variant_id = ?").get(v).q, 1);
+  assert.equal(await t.stockOf(v), 0);
+  assert.equal((await t.db.get("SELECT COALESCE(SUM(quantity),0) q FROM order_items WHERE variant_id = ?", [v])).q, 1);
 });
 
 test('rechaza cantidades y carritos inválidos', async () => {
@@ -98,7 +98,7 @@ test('rechaza cantidades y carritos inválidos', async () => {
   assert.equal((await t.post('/api/orders', { ...validCustomer(), items: [] })).status, 400);
   assert.equal((await t.post('/api/orders', { ...validCustomer() })).status, 400);
   assert.equal((await t.post('/api/orders', { ...validCustomer(), items: [{ variantId: 999999, qty: 1 }] })).status, 409);
-  const big = t.addProduct('Malla Mucho Stock', 1000, { M: 500 });
+  const big = await t.addProduct('Malla Mucho Stock', 1000, { M: 500 });
   const r = await t.post('/api/orders', { ...validCustomer(), items: [{ variantId: t.variantId(big, 'M'), qty: 11 }] });
   assert.equal(r.status, 409);
   assert.equal(r.json.problems[0].code, 'max_qty');
@@ -142,23 +142,23 @@ test('/api/orders solo acepta JSON del mismo origen', async () => {
 
 test('cancelar un pedido devuelve el stock y reactivarlo lo vuelve a descontar', async () => {
   const { changeStatus } = require('../src/services/orders');
-  const p = t.addProduct('Malla Cancelable', 20000, { S: 4 });
+  const p = await t.addProduct('Malla Cancelable', 20000, { S: 4 });
   const v = t.variantId(p, 'S');
   const r = await t.post('/api/orders', { ...validCustomer(), items: [{ variantId: v, qty: 3 }] });
-  assert.equal(t.stockOf(v), 1);
-  const id = t.db.prepare('SELECT id FROM orders WHERE code = ?').get(r.json.code).id;
-  changeStatus(id, 'cancelado');
-  assert.equal(t.stockOf(v), 4);
-  changeStatus(id, 'cancelado'); // idempotente
-  assert.equal(t.stockOf(v), 4);
-  changeStatus(id, 'confirmado');
-  assert.equal(t.stockOf(v), 1);
-  changeStatus(id, 'enviado');
-  assert.equal(t.stockOf(v), 1);
+  assert.equal(await t.stockOf(v), 1);
+  const id = (await t.db.get('SELECT id FROM orders WHERE code = ?', [r.json.code])).id;
+  await changeStatus(id, 'cancelado');
+  assert.equal(await t.stockOf(v), 4);
+  await changeStatus(id, 'cancelado'); // idempotente
+  assert.equal(await t.stockOf(v), 4);
+  await changeStatus(id, 'confirmado');
+  assert.equal(await t.stockOf(v), 1);
+  await changeStatus(id, 'enviado');
+  assert.equal(await t.stockOf(v), 1);
 });
 
 test('/api/cart/validate ajusta cantidades al stock y quita productos desactivados', async () => {
-  const p = t.addProduct('Malla Carrito', 10000, { M: 2, L: 0 });
+  const p = await t.addProduct('Malla Carrito', 10000, { M: 2, L: 0 });
   const r = await t.post('/api/cart/validate', { items: [{ variantId: t.variantId(p, 'M'), qty: 5 }, { variantId: t.variantId(p, 'L'), qty: 1 }] });
   assert.equal(r.status, 200);
   const m = r.json.items.find((i) => i.size === 'M');
@@ -166,17 +166,17 @@ test('/api/cart/validate ajusta cantidades al stock y quita productos desactivad
   assert.equal(m.qty, 2);
   assert.equal(m.subtotal, 20000);
   assert.equal(l.maxQty, 0);
-  t.products.setFlag(p.id, 'active', false);
+  await t.products.setFlag(p.id, 'active', false);
   const r2 = await t.post('/api/cart/validate', { items: [{ variantId: t.variantId(p, 'M'), qty: 1 }] });
   assert.deepEqual(r2.json.items, []);
 });
 
 test('un producto sin stock se muestra "Sin stock" y los inactivos no son públicos', async () => {
-  const p = t.addProduct('Malla Agotada', 10000, { M: 0, L: 0 });
+  const p = await t.addProduct('Malla Agotada', 10000, { M: 0, L: 0 });
   const html = await (await fetch(`${t.base}/producto/${p.slug}`)).text();
   assert.match(html, /Sin stock/);
   assert.match(html, /Avisame cuando vuelva/);
-  t.products.setFlag(p.id, 'active', false);
+  await t.products.setFlag(p.id, 'active', false);
   assert.equal((await fetch(`${t.base}/producto/${p.slug}`)).status, 404);
   const sitemap = await (await fetch(t.base + '/sitemap.xml')).text();
   assert.ok(!sitemap.includes(p.slug));
@@ -204,9 +204,9 @@ test('headers de seguridad y página 404', async () => {
 });
 
 test('filtros del catálogo: casillas de color y talle (varios a la vez), cantidades y tarjeta clickeable', async () => {
-  t.addProduct('Malla Filtro Roja', 11111, { S: 2, M: 0 }, { color: 'Rojo' });
-  t.addProduct('Malla Filtro Azul', 22222, { M: 3, L: 1 }, { color: 'Azul' });
-  t.addProduct('Malla Filtro Negra', 33333, { L: 4 }, { color: 'Negro' });
+  await t.addProduct('Malla Filtro Roja', 11111, { S: 2, M: 0 }, { color: 'Rojo' });
+  await t.addProduct('Malla Filtro Azul', 22222, { M: 3, L: 1 }, { color: 'Azul' });
+  await t.addProduct('Malla Filtro Negra', 33333, { L: 4 }, { color: 'Negro' });
   const names = async (qs) => {
     const html = await (await fetch(`${t.base}/?${qs}`)).text();
     return [...html.matchAll(/class="card__link" href="\/producto\/[^"]+">([^<]+)</g)].map((m) => m[1]);

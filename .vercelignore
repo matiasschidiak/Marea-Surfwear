@@ -1,0 +1,10 @@
+# Lo que NO se sube a Vercel
+.env
+.env.*
+data/
+tests/
+node_modules/
+public/uploads/
+scripts/generate-art.js
+render.yaml
+*.log

@@ -5,7 +5,8 @@ const express = require('express');
 const helmet = require('helmet');
 const compression = require('compression');
 const config = require('./config');
-const { getDb } = require('./db');
+const { ensureReady } = require('./bootstrap');
+const storage = require('./services/storage');
 const settings = require('./repositories/settings');
 const images = require('./services/images');
 const whatsapp = require('./services/whatsapp');
@@ -26,13 +27,18 @@ function jsVersion() {
   return max.toString(36);
 }
 let jsVersionCache = null;
-const currentJsVersion = () => (config.isProduction ? (jsVersionCache ||= jsVersion()) : jsVersion());
+// En Vercel los archivos de /public los sirve la CDN y no están dentro de la función: la versión sale del despliegue.
+const deployVersion = () => String(process.env.VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_DEPLOYMENT_ID || '1').slice(0, 10);
+const currentJsVersion = () => {
+  if (config.onVercel) return deployVersion();
+  return config.isProduction ? (jsVersionCache ||= jsVersion()) : jsVersion();
+};
 
 /** /css/main.css -> /css/main.css?v=<mtime>  (cache largo + invalidación al cambiar el archivo) */
 function asset(urlPath) {
   if (urlPath.startsWith('/js/')) return `${urlPath}?v=${currentJsVersion()}`;
   if (!assetVersions.has(urlPath)) {
-    let v = '1';
+    let v = deployVersion();
     try { v = Math.floor(fs.statSync(path.join(publicDir, urlPath)).mtimeMs).toString(36); } catch { /* sin archivo */ }
     assetVersions.set(urlPath, v);
   }
@@ -62,8 +68,6 @@ function productImg(product, index = 0, opts = {}) {
 }
 
 function createApp() {
-  getDb(); // abre la base y aplica migraciones pendientes
-
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', config.trustProxy ? 1 : false);
@@ -80,7 +84,7 @@ function createApp() {
         styleSrc: ["'self'", 'https://fonts.googleapis.com'],
         styleSrcAttr: ["'unsafe-inline'"],
         fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-        imgSrc: ["'self'", 'data:', 'blob:'],
+        imgSrc: ["'self'", 'data:', 'blob:', ...(storage.origin ? [storage.origin] : [])],
         connectSrc: ["'self'"],
         formAction: ["'self'"],
         frameAncestors: ["'self'"],
@@ -94,8 +98,10 @@ function createApp() {
   }));
   app.use(compression());
 
-  // Fotos subidas desde el panel (la carpeta puede estar fuera de /public, p. ej. un disco persistente)
-  app.use(config.uploadsUrl, express.static(config.uploadsDir, { maxAge: config.isProduction ? '365d' : 0, immutable: config.isProduction, index: false }));
+  // Fotos subidas desde el panel cuando se guardan en una carpeta (desarrollo). En producción están en Supabase Storage.
+  if (!storage.useSupabase) {
+    app.use(config.uploadsUrl, express.static(config.uploadsDir, { maxAge: config.isProduction ? '365d' : 0, immutable: config.isProduction, index: false }));
+  }
 
   // JavaScript: los import entre módulos llevan ?v=<versión>, así el navegador nunca mezcla archivos viejos y nuevos.
   // Con ?v= se guarda un año (cambia solo si cambia el código); sin ?v= se revalida siempre.
@@ -123,9 +129,16 @@ function createApp() {
     },
   }));
 
+  // Prepara la base de datos (migraciones, datos básicos) una sola vez por instancia
+  app.use(async (req, res, next) => {
+    await ensureReady();
+    next();
+  });
+
   // Variables disponibles en todas las vistas
-  app.use((req, res, next) => {
-    const store = settings.all();
+  app.use(async (req, res, next) => {
+    const store = await settings.all();
+    const waNumber = String(store.whatsapp_number || '').replace(/\D/g, '');
     Object.assign(res.locals, {
       store,
       siteUrl: config.siteUrl,
@@ -140,8 +153,8 @@ function createApp() {
       statusLabel: (s) => (constants.STATUS_BY_VALUE[s] || { label: s }).label,
       deliveryLabel: (v) => (constants.DELIVERY_BY_VALUE[v] || { label: v }).label,
       paymentLabel: (v) => (constants.PAYMENT_BY_VALUE[v] || { label: v }).label,
-      waNumber: whatsapp.whatsappNumber(),
-      waLink: (text) => whatsapp.buildUrl(text || 'Hola! Quiero hacer una consulta.'),
+      waNumber,
+      waLink: (text) => whatsapp.buildUrl(text || 'Hola! Quiero hacer una consulta.', waNumber),
       limits: config.limits,
       faq: require('./content/faq'),
       /** Enlace de WhatsApp hacia un cliente (teléfonos argentinos de 10 dígitos llevan el prefijo 549). */
@@ -153,7 +166,7 @@ function createApp() {
       icon: (name, cls = '') => `<svg class="icon ${cls}" aria-hidden="true" focusable="false"><use href="#i-${name}"/></svg>`,
       img: renderImg,
       productImg,
-      jsonLd: (obj) => JSON.stringify(obj).replace(/</g, '\u003c'),
+      jsonLd: (obj) => JSON.stringify(obj).replace(/</g, '\\u003c'),
       meta: {},
     });
     next();

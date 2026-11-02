@@ -1,10 +1,11 @@
 'use strict';
-// Crea la base de datos y aplica las migraciones pendientes.
+// Crea las tablas (o las actualiza) en la base configurada: Supabase si hay DATABASE_URL, si no la base local.
 const config = require('../src/config');
-const { open, migrate } = require('../src/db');
+const db = require('../src/db');
 
-const db = open();
-const applied = migrate(db);
-db.close();
-console.log(`Base de datos lista en ${config.dbPath}`);
-console.log(applied.length ? `Migraciones aplicadas: ${applied.join(', ')}` : 'No había migraciones pendientes.');
+(async () => {
+  const applied = await db.init();
+  console.log(config.databaseUrl ? 'Base de datos: PostgreSQL (DATABASE_URL)' : `Base de datos local: ${config.pgliteDir}`);
+  console.log(applied.length ? `Migraciones aplicadas: ${applied.join(', ')}` : 'No había migraciones pendientes.');
+  await db.close();
+})().catch((err) => { console.error('Error:', err.message); process.exit(1); });

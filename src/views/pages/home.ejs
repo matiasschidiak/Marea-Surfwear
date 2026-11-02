@@ -24,12 +24,7 @@
           <a class="btn btn--glass btn--lg" href="<%= waLink() %>" target="_blank" rel="noopener"><%- icon('whatsapp') %> Hablar con nosotros</a>
         </div>
       </div>
-      <% if (featured[0] && featured[0].images[0]) { %>
-      <a class="hero__card" href="/producto/<%= featured[0].slug %>" aria-label="Ver <%= featured[0].name %>">
-        <%- productImg(featured[0], 0, { sizes: '(min-width: 900px) 320px, 0px', priority: true }) %>
-        <span class="hero__card-info"><strong><%= featured[0].name %></strong><span><%= money(featured[0].price) %></span></span>
-      </a>
-      <% } %>
+      <img class="hero__collage" src="<%= asset('/img/hero-collage.webp') %>" alt="Las mallas de la colección MAREA" width="1200" height="985" fetchpriority="high" decoding="async">
     </div>
   </section>
 

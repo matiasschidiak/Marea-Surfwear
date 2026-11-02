@@ -1,21 +1,16 @@
-# Blueprint de Render: https://render.com/docs/blueprint-spec
-# En Render: New → Blueprint → elegí este repositorio. Las variables marcadas
-# con "sync: false" te las pide al crear el servicio.
+# Blueprint de Render (alternativa a Vercel): https://render.com/docs/blueprint-spec
+# La base de datos y las fotos viven en Supabase, así que NO hace falta disco persistente.
+# En Render: New → Blueprint → elegí este repositorio. Las variables marcadas con
+# "sync: false" te las pide al crear el servicio.
 services:
   - type: web
     name: marea-surfwear
     runtime: node
-    # El disco persistente (base de datos y fotos) necesita un plan pago.
-    # En el plan gratis cada reinicio borraría los productos y pedidos.
-    plan: starter
+    plan: free            # con Supabase alcanza el plan gratis (se "duerme" si nadie entra; el starter no)
     region: virginia
     buildCommand: npm ci --omit=dev
     startCommand: npm run start:prod
     healthCheckPath: /
-    disk:
-      name: marea-data
-      mountPath: /data
-      sizeGB: 1
     envVars:
       - key: NODE_VERSION
         value: "22"
@@ -23,10 +18,12 @@ services:
         value: production
       - key: TRUST_PROXY
         value: "1"
-      - key: DATABASE_PATH
-        value: /data/marea.db
-      - key: UPLOADS_DIR
-        value: /data/uploads
+      - key: DATABASE_URL        # Supabase → Connect → Transaction pooler
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
       - key: WHATSAPP_NUMBER
         value: "5492994154002"
       - key: STORE_ADDRESS

@@ -18,10 +18,10 @@ function slugify(text) {
     .slice(0, 80);
 }
 
-/** Las fechas se guardan en UTC (datetime('now')); se muestran en hora de Argentina. */
+/** Las fechas llegan de Postgres como Date (UTC); se muestran en hora de Argentina. */
 function parseDbDate(value) {
   if (!value) return null;
-  return new Date(String(value).replace(' ', 'T') + 'Z');
+  return value instanceof Date ? value : new Date(value);
 }
 
 function dateTime(value) {

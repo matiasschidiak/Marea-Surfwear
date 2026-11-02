@@ -25,9 +25,9 @@ function clearSessionCookie(res) {
 }
 
 /** Carga la sesión del admin (si existe) en req.admin / req.csrfToken. No bloquea. */
-function loadSession(req, res, next) {
+async function loadSession(req, res, next) {
   const token = parseCookies(req.headers.cookie)[config.session.cookieName];
-  const s = sessions.find(token);
+  const s = await sessions.find(token);
   req.sessionToken = token || null;
   req.admin = s ? s.admin : null;
   req.csrfToken = s ? s.csrf : null;

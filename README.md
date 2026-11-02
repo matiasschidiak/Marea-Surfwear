@@ -5,7 +5,7 @@ checkout validado, **pedido por WhatsApp con el mensaje ya armado**, **stock por
 
 - Pensada primero para celulares (mobile-first) y adaptada a tablets y escritorio.
 - Todo (productos, talles, stock, fotos, pedidos) vive en una **base de datos**; nada está hardcodeado en el HTML o JavaScript.
-- Node.js + Express + SQLite. Páginas renderizadas en el servidor (rápidas y buenas para Google) con JavaScript solo donde hace falta.
+- Node.js + Express + **PostgreSQL (Supabase)**, publicada en **Vercel**. Páginas renderizadas en el servidor (rápidas y buenas para Google) con JavaScript solo donde hace falta.
 
 ---
 
@@ -19,7 +19,7 @@ checkout validado, **pedido por WhatsApp con el mensaje ya armado**, **stock por
 6. [Usar el panel de administración](#usar-el-panel-de-administración)
 7. [Cómo funciona la compra y el WhatsApp](#cómo-funciona-la-compra-y-el-whatsapp)
 8. [Cómo funciona el stock](#cómo-funciona-el-stock)
-9. [Poner la tienda en producción](#poner-la-tienda-en-producción) (VPS o Render)
+9. [Poner la tienda en producción](#poner-la-tienda-en-producción) (Vercel + Supabase)
 10. [Backups](#backups)
 11. [Seguridad](#seguridad)
 12. [Estructura del proyecto](#estructura-del-proyecto)
@@ -54,7 +54,8 @@ checkout validado, **pedido por WhatsApp con el mensaje ya armado**, **stock por
 
 ## Instalación local
 
-**Requisitos:** [Node.js](https://nodejs.org) 20 o superior (probado con Node 24).
+**Requisitos:** [Node.js](https://nodejs.org) 20 o superior (probado con Node 24). No hace falta instalar ninguna base de datos:
+en tu computadora la tienda usa un Postgres embebido (PGlite) que se guarda en `data/pglite`.
 
 ```bash
 # 1. Instalar dependencias
@@ -63,21 +64,21 @@ npm install
 # 2. Crear el archivo de configuración
 cp .env.example .env        # en Windows (PowerShell): copy .env.example .env
 
-# 3. Crear la base de datos con los talles y 6 productos de demostración
+# 3. Cargar los productos de demostración (opcional) y crear tu administrador
 npm run setup
+npm run admin:create        # te pregunta email y contraseña
 
-# 4. Crear tu usuario administrador (te pregunta email y contraseña)
-npm run admin:create
-
-# 5. Iniciar la tienda
+# 4. Iniciar la tienda
 npm start                   # o "npm run dev" para que se reinicie al editar el código
 ```
 
 Abrí <http://localhost:3000> (tienda) y <http://localhost:3000/admin> (panel).
 
-> Los productos de demostración usan **ilustraciones de ejemplo**. Reemplazalas subiendo fotos reales desde
-> *Admin → Productos → Editar → Imágenes*. Si no querés los productos demo, usá `node scripts/db-seed.js --no-demo`
-> en vez de `npm run setup` (o eliminalos desde el panel).
+> **Si ya tenías la tienda con la base anterior (`data/marea.db`):** al iniciar por primera vez en tu computadora, la tienda
+> la detecta y **copia sola tus productos, pedidos y administrador** a la base nueva. No tenés que hacer nada.
+>
+> Los productos de demostración usan **ilustraciones de ejemplo**: reemplazalas con fotos reales desde
+> *Admin → Productos → Editar → Imágenes*, o usá `node scripts/db-seed.js --no-demo` en vez de `npm run setup`.
 
 ---
 
@@ -91,8 +92,11 @@ Copiá `.env.example` a `.env`. Las variables principales:
 | `NODE_ENV` | `production` en el servidor real (activa cookies seguras, HSTS y caché). |
 | `SITE_URL` | URL pública, sin barra final. Se usa en el sitemap, Open Graph y datos estructurados. |
 | `TRUST_PROXY` | `1` si hay Nginx/Render/Railway/Cloudflare delante (necesario para HTTPS y límites por IP). |
-| `DATABASE_PATH` | Ruta del archivo SQLite (por defecto `data/marea.db`). |
-| `UPLOADS_DIR` | Carpeta de las fotos subidas (por defecto `public/uploads`). |
+| `DATABASE_URL` | Conexión a PostgreSQL (Supabase). **Obligatoria en producción.** Vacía = Postgres embebido local. |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Dónde se guardan las fotos subidas (Supabase Storage). Vacías = carpeta local `public/uploads`. |
+| `SUPABASE_BUCKET` | Nombre del bucket de fotos (por defecto `productos`; se crea solo). |
+| `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Administrador inicial: solo se crea si todavía no hay ninguno. |
+| `DATABASE_PATH` | Base SQLite **anterior**, solo para importarla (`npm run db:import-sqlite`). |
 | `WHATSAPP_NUMBER` | Número que recibe los pedidos, solo dígitos con código de país. |
 | `CONTACT_EMAIL`, `STORE_ADDRESS`, `INSTAGRAM_URL`, `TIKTOK_URL`, `FACEBOOK_URL` | Datos de contacto y redes (también se editan desde el panel). |
 | `LOW_STOCK_THRESHOLD` | Unidades por debajo de las cuales un talle se marca "Últimas unidades". |
@@ -109,8 +113,8 @@ WhatsApp a veces requiere el **9 de celulares argentinos**: cambiá el número a
 
 ## Base de datos
 
-Se usa **SQLite** (un único archivo, sin servidor aparte): ideal para una tienda que empieza y fácil de respaldar.
-Las tablas están separadas para que el sistema pueda crecer:
+Se usa **PostgreSQL**: en producción el de **Supabase**, y en tu computadora un Postgres embebido (PGlite) sin instalar nada.
+El código es el mismo en los dos casos. Las tablas están separadas para que el sistema pueda crecer:
 
 | Tabla | Contenido |
 |---|---|
@@ -125,13 +129,17 @@ Las tablas están separadas para que el sistema pueda crecer:
 | `order_status_history` | Historial de cambios de estado. |
 | `admins`, `admin_sessions` | Administradores (contraseña con scrypt) y sesiones. |
 | `settings` | Configuración editable desde el panel. |
+| `rate_limits` | Contadores del límite de intentos (login y pedidos). |
 | `schema_migrations` | Versiones del esquema aplicadas. |
 
 **Migraciones:** los cambios de estructura se escriben como archivos `src/db/migrations/00N_nombre.sql`. Se aplican solos al
-iniciar la app (o con `npm run db:init`), en orden y una sola vez. Para agregar una función nueva, creá `002_algo.sql`.
+iniciar la app (o con `npm run db:init`), en orden, una sola vez y de forma segura aunque haya varias instancias iniciando a la vez.
+Para agregar una función nueva, creá `002_algo.sql`.
 
-**Crecer en el futuro:** el acceso a datos está aislado en `src/repositories/` y `src/services/`. Si algún día necesitás
-PostgreSQL o MySQL (varios servidores, mucho tráfico), solo hay que reescribir esa capa; las vistas y rutas no cambian.
+**Seguridad de los datos en Supabase:** todas las tablas tienen RLS activado y sin políticas, así que la clave pública (`anon`)
+de Supabase no puede leer ni escribir nada. Solo la tienda (servidor) accede, con la cadena de conexión.
+
+**Fotos:** se guardan en **Supabase Storage** (bucket público `productos`, creado automáticamente). La base solo guarda la URL.
 
 ---
 
@@ -239,124 +247,98 @@ Los datos personales del cliente no quedan en la URL de la página de confirmaci
 
 ## Poner la tienda en producción
 
-Necesitás: un dominio, un servidor con **disco persistente** (la base SQLite y las fotos viven en archivos) y HTTPS.
+La tienda se publica en **Vercel** (el sitio) usando **Supabase** (base de datos PostgreSQL y fotos). Todo se hace con cuentas web;
+ningún paso requiere instalar un servidor.
 
-### Opción A: VPS (Ubuntu 22.04/24.04) con Nginx + HTTPS — recomendada
+> **Importante sobre costos y condiciones**
+> - **Vercel Hobby (gratis) es solo para uso personal y no comercial.** Para una tienda que vende, sus condiciones piden el plan **Pro** (unos US$ 20 por mes).
+> - **Supabase gratis** pausa el proyecto si pasa una semana sin actividad y **no incluye copias de seguridad automáticas**. Para vender de verdad conviene el plan Pro de Supabase (backups diarios y sin pausas).
+> - Vercel **no puede guardar archivos**: por eso la base y las fotos viven en Supabase.
 
+### Paso 1 · Crear el proyecto en Supabase
+1. Entrá a <https://supabase.com> → **New project**. Nombre: `marea-surfwear`. Elegí una **contraseña de base de datos** (guardala) y la región **South America (São Paulo)**. Esperá un par de minutos.
+2. Botón **Connect** (arriba) → pestaña **Connection string** → método **Transaction pooler** → copiá la dirección y reemplazá `[YOUR-PASSWORD]` por tu contraseña. Es tu `DATABASE_URL` (puerto `6543`).
+   Si la contraseña tiene símbolos (`@ : / # ?`), escribilos codificados (por ejemplo `@` → `%40`) o elegí una contraseña solo con letras y números.
+3. **Project Settings → API**: copiá la **Project URL** (`SUPABASE_URL`) y la clave **`service_role`** (`SUPABASE_SERVICE_ROLE_KEY`). Esta clave es **secreta**: nunca la pegues en el código ni la subas a GitHub.
+
+### Paso 2 · Pasar tus datos y fotos a Supabase (una sola vez, desde tu computadora)
+1. En tu archivo `.env` completá `DATABASE_URL`, `SUPABASE_URL` y `SUPABASE_SERVICE_ROLE_KEY`.
+2. Ejecutá:
+   ```bash
+   npm install
+   npm run db:init            # crea las tablas en Supabase
+   npm run db:import-sqlite   # copia productos, stock, pedidos y administrador de data/marea.db y SUBE tus fotos a Supabase Storage
+   ```
+   Si empezás de cero (sin base anterior): ejecutá `npm run db:init` y `npm run admin:create`.
+3. Comprobá en Supabase: **Table Editor** (tus productos) y **Storage → productos** (tus fotos).
+
+> Mientras esas variables estén en tu `.env`, `npm start` en tu computadora trabaja contra la base **real**. Para probar sin tocar la tienda,
+> dejalas vacías (o comentalas con `#`) cuando no las necesites.
+
+### Paso 3 · Subir el código a GitHub
 ```bash
-# 1. Node.js 20+ y herramientas
-curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs nginx git build-essential
-sudo npm install -g pm2
-
-# 2. Subir el proyecto (git clone o copiar la carpeta) y entrar
-cd /var/www/marea-surfwear
-npm ci --omit=dev
-
-# 3. Configurar
-cp .env.example .env
-nano .env       # SITE_URL=https://tudominio.com  NODE_ENV=production  TRUST_PROXY=1  ...
-
-# 4. Base de datos (sin productos demo) y administrador
-node scripts/db-init.js
-node scripts/db-seed.js --no-demo
-npm run admin:create
-
-# 5. Dejarla corriendo siempre
-pm2 start server.js --name marea
-pm2 save && pm2 startup        # ejecutá el comando que te muestra
+git add .
+git commit -m "Pasar la tienda a Supabase y Vercel"
+git push
 ```
+El archivo `.env` **no se sube** (está en `.gitignore`).
 
-Nginx (`/etc/nginx/sites-available/marea`):
+### Paso 4 · Publicar en Vercel
+1. Entrá a <https://vercel.com> con tu cuenta de GitHub → **Add New… → Project** → elegí el repositorio `Marea-Surfwear` → **Import**.
+2. **Framework Preset: Other.** No toques *Build Command* ni *Output Directory* (ya los define `vercel.json`).
+3. En **Environment Variables** cargá:
+   | Variable | Valor |
+   |---|---|
+   | `DATABASE_URL` | la dirección del *Transaction pooler* (Paso 1) |
+   | `SUPABASE_URL` | la Project URL |
+   | `SUPABASE_SERVICE_ROLE_KEY` | la clave `service_role` |
+   | `WHATSAPP_NUMBER` | `542994154002` (o el tuyo, solo dígitos) |
+   | `SITE_URL` | tu dominio (ej. `https://www.mareasurfwear.com.ar`); si todavía no tenés, dejalo vacío |
+4. **Deploy.** Al terminar, abrí la dirección `*.vercel.app` que te da Vercel: esa es tu tienda. El panel está en `/admin`.
 
-```nginx
-server {
-    server_name tudominio.com www.tudominio.com;
-    client_max_body_size 40M;            # subida de fotos desde el panel
+La función corre en São Paulo (`gru1`, ver `vercel.json`), cerca de tu base de Supabase.
 
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-}
-```
+### Paso 5 · Dominio propio
+En Vercel → **Settings → Domains** agregá tu dominio y seguí las instrucciones para apuntar el DNS. Después poné ese dominio en la variable `SITE_URL` y volvé a desplegar (*Deployments → ⋯ → Redeploy*).
 
-```bash
-sudo ln -s /etc/nginx/sites-available/marea /etc/nginx/sites-enabled/
-sudo nginx -t && sudo systemctl reload nginx
-sudo apt-get install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d tudominio.com -d www.tudominio.com     # HTTPS gratis y renovación automática
-```
+### Actualizar la tienda
+Cada `git push` publica solo la versión nueva. Los cambios de estructura de la base (migraciones) se aplican automáticamente al recibir la primera visita.
+Para cambiar productos, fotos, precios o stock no hace falta tocar el código: se hace desde el panel.
 
-**Actualizar la tienda:** subir los cambios, `npm ci --omit=dev` y `pm2 restart marea`. Las migraciones se aplican solas.
+### Qué cambia con Vercel (para tener en cuenta)
+- **Fotos:** se guardan en Supabase Storage. Vercel acepta pedidos de hasta 4,5 MB, así que el panel **reduce las fotos en tu navegador** antes de subirlas (máx. 1600 px, WebP) y luego el servidor genera sus tamaños optimizados.
+- **Banner de inicio (collage):** es un archivo estático. Si cambiás las mallas, ejecutá `npm run hero:build` en tu computadora (con tu `.env` apuntando a Supabase), y luego `git add`, `git commit` y `git push` para publicar el collage nuevo.
+- **Límite de intentos (login, pedidos):** se guarda en la base de datos, así funciona aunque Vercel use varias instancias a la vez.
+- **Errores y registros:** Vercel → tu proyecto → **Logs**.
 
-### Opción B: Render (ya configurado en `render.yaml`)
-
-El repositorio trae un *Blueprint* de Render listo. El arranque (`npm run start:prod`)
-prepara la base de datos y crea el administrador solo, así que no hace falta consola.
-
-1. Creá una cuenta en [render.com](https://render.com) (podés entrar con GitHub).
-2. **New → Blueprint** y elegí el repositorio `Marea-Surfwear`.
-3. Render te pide tres datos:
-   - `ADMIN_EMAIL`: el email con el que vas a entrar al panel.
-   - `ADMIN_PASSWORD`: mínimo 10 caracteres, con letras y números.
-   - `SITE_URL`: dejalo vacío hasta tener dominio propio (se usa la dirección `.onrender.com`).
-4. Confirmá con **Apply**. El primer deploy tarda unos minutos.
-5. Entrá a `https://<tu-servicio>.onrender.com/admin`, cargá los productos y revisá
-   *Configuración* (WhatsApp, redes, email).
-
-**Costo:** el plan *Starter* (alrededor de USD 7 por mes) es el más barato que permite
-disco persistente. En el plan gratis la base y las fotos se borrarían en cada reinicio.
-
-**Dominio propio:** en el servicio, *Settings → Custom Domains*. Después poné la
-dirección en `SITE_URL` (con `https://`) y reiniciá.
-
-**Actualizar la tienda:** cada `git push` a `main` vuelve a publicarla sola. La base y
-las fotos están en el disco `/data`, así que no se pierden.
-
-**Productos de demostración:** si querés que la tienda arranque con las mallas de
-ejemplo, agregá la variable `SEED_DEMO=1` antes del primer deploy.
-
-**Backups:** en el servicio, *Disks → Snapshots*: Render guarda copias diarias del disco.
-
-### Opción C: otras plataformas (Railway / Fly.io)
-
-- Servicio web Node: build `npm ci --omit=dev`, start `npm run start:prod` (prepara la base y crea el admin con `ADMIN_EMAIL` / `ADMIN_PASSWORD`).
-- **Agregá un disco/volumen persistente** (por ejemplo montado en `/data`) y poné en las variables de entorno:
-  `DATABASE_PATH=/data/marea.db` y `UPLOADS_DIR=/data/uploads`. Sin disco persistente, cada deploy borra la base y las fotos.
-- Variables: `NODE_ENV=production`, `TRUST_PROXY=1`, `SITE_URL=https://tu-dominio`, `WHATSAPP_NUMBER=...`.
-- Primer arranque: en la consola de la plataforma ejecutá `node scripts/db-init.js && node scripts/db-seed.js --no-demo` y `npm run admin:create`.
-- Usá **una sola instancia** (SQLite no está pensado para varias instancias escribiendo a la vez).
+### Alternativa: Render u otro servidor
+`render.yaml` quedó listo para Render **sin disco** (usa Supabase igual que Vercel): *New → Blueprint*, cargá `DATABASE_URL`, `SUPABASE_URL` y
+`SUPABASE_SERVICE_ROLE_KEY`. El comando `npm run start:prod` hace lo mismo que `npm start`. Sirve también para un VPS con Node: definí las mismas variables y ejecutá `npm start` detrás de Nginx.
 
 ### Lista de verificación antes de abrir al público
-- [ ] `SITE_URL` con `https://` y `NODE_ENV=production`.
-- [ ] HTTPS funcionando (candado en el navegador).
+- [ ] `SITE_URL` con `https://` (Vercel ya usa modo producción).
+- [ ] HTTPS funcionando (candado en el navegador; Vercel lo da solo).
 - [ ] Administrador creado con una contraseña fuerte y única.
 - [ ] Productos demo eliminados y fotos reales subidas.
 - [ ] Número de WhatsApp, email, dirección y redes cargados en *Admin → Configuración*.
 - [ ] Textos de envíos, cambios y términos revisados (ver [Pendientes](#pendientes-antes-de-lanzar)).
 - [ ] Hiciste un pedido de prueba completo y lo cancelaste (el stock vuelve).
-- [ ] Backup automático configurado.
+- [ ] Copias de seguridad (plan Pro de Supabase o tus propios `pg_dump`).
 - [ ] Sitemap enviado a Google Search Console (`https://tudominio.com/sitemap.xml`).
 
 ---
 
 ## Backups
 
-Se respaldan **dos cosas**: el archivo de base de datos y la carpeta de fotos.
+Se respaldan **dos cosas**: la base de datos y las fotos.
 
-```bash
-# Copia consistente de la base (aun con la tienda funcionando)
-sqlite3 data/marea.db ".backup 'backup/marea-$(date +%F).db'"
-# Fotos
-tar czf backup/uploads-$(date +%F).tar.gz public/uploads
-```
-
-Programalo con `cron` (por ejemplo todos los días a las 3 AM) y copiá los archivos a otro lugar (Google Drive, otro servidor, etc.).
-Para restaurar: detené la app, reemplazá `data/marea.db` y la carpeta de fotos, y arrancala de nuevo.
+- **Base de datos (Supabase):** el plan Pro incluye copias diarias (*Database → Backups*). En el plan gratis hacé tus propias copias.
+  Con las herramientas de PostgreSQL y la conexión **directa** (*Connect → Direct connection*, puerto 5432):
+  ```bash
+  pg_dump "postgresql://postgres:TU_CLAVE@db.TU_PROYECTO.supabase.co:5432/postgres" --no-owner -f backup-marea-$(date +%F).sql
+  ```
+- **Fotos:** *Storage → productos* permite descargarlas desde el panel de Supabase. Además, las originales las tenés en tu computadora y en tu celular.
+- Guardá las copias en otro lugar (Google Drive, disco externo). Para restaurar: `psql "<conexión>" -f backup.sql`.
 
 ---
 
@@ -365,12 +347,12 @@ Para restaurar: detené la app, reemplazá `data/marea.db` y la carpeta de fotos
 - **Panel protegido:** todas las rutas de `/admin` exigen sesión; cookie `HttpOnly`, `SameSite=Lax` y `Secure` en producción, limitada a `/admin`; sesiones con vencimiento.
 - **Contraseñas** con scrypt y sal; comparación en tiempo constante; mensaje de error idéntico para email o clave incorrectos.
 - **CSRF:** todos los formularios del panel llevan token; el login usa un token propio.
-- **Límite de intentos** en el login (8 cada 15 min por IP) y en la creación de pedidos.
+- **Límite de intentos** en el login (8 cada 15 min por IP) y en la creación de pedidos, guardado en la base (vale aunque haya varias instancias).
 - **Validación en el servidor** de todo: datos del cliente, cantidades, stock, precios (siempre se leen de la base), formularios del panel y subida de imágenes (se verifica que sean imágenes reales y se recodifican a WebP).
 - **Stock atómico:** descuento condicional dentro de una transacción; imposible quedar en negativo ni vender dos veces la última unidad.
 - **Cabeceras de seguridad** (Helmet): Content-Security-Policy estricta (sin scripts inline), HSTS en producción, sin `X-Powered-By`.
 - **API de pedidos** solo acepta JSON del mismo origen.
-- SQL siempre con parámetros (sin concatenar datos del usuario). Todo el HTML se escapa en las vistas.
+- SQL siempre con parámetros (sin concatenar datos del usuario). Todo el HTML se escapa en las vistas. En Supabase las tablas tienen RLS activado (la clave pública no accede).
 - Los datos personales no viajan por la URL ni se muestran en la página de confirmación.
 
 Recomendaciones: usá una clave única y larga para el administrador, mantené Node y las dependencias al día (`npm audit`) y hacé backups.
@@ -380,17 +362,22 @@ Recomendaciones: usá una clave única y larga para el administrador, mantené N
 ## Estructura del proyecto
 
 ```
-server.js                    Arranque
+server.js                    Arranque local / Render / VPS
+api/index.js                 Entrada de Vercel (la app Express)
+vercel.json                  Configuración de Vercel (región, función, rutas)
 src/
   app.js                     Configuración de Express, seguridad y variables de las vistas
   config.js · constants.js   Configuración, métodos de entrega/pago, estados, provincias
-  db/                        Conexión SQLite y migraciones (migrations/*.sql)
+  db/                        Conexión PostgreSQL (Supabase o PGlite local), migraciones (migrations/*.sql) e importador desde SQLite
+  bootstrap.js               Prepara la base al iniciar (migraciones, datos básicos, administrador inicial)
   repositories/              Acceso a datos: productos, pedidos, talles/categorías, configuración
   services/
     orders.js                Crear pedido + descontar stock + cambiar estado (transacciones)
     cart.js                  Estado real del carrito (precio/stock) a partir de lo que manda el navegador
     whatsapp.js              Armado del mensaje y del enlace de WhatsApp
-    auth.js · images.js      Login/sesiones y procesamiento de fotos
+    auth.js                  Login y sesiones
+    images.js · storage.js   Procesamiento de fotos y almacenamiento (Supabase Storage o carpeta local)
+    rate-limit-store.js      Contadores de límite de intentos en la base
   middleware/admin-auth.js   Sesión y CSRF del panel
   routes/                    public.js (tienda) · api.js (carrito/pedidos) · admin.js (panel)
   utils/                     Validaciones y formato (moneda, fechas)
@@ -400,7 +387,7 @@ public/
   css/main.css · admin.css   Estilos
   js/                        cart.js (carrito) · cart-ui.js · product.js · checkout.js · ui.js · admin.js
   img/ · uploads/            Imágenes del sitio y fotos subidas
-scripts/                     db-init · db-seed · create-admin · generate-art
+scripts/                     db-init · db-seed · db:import-sqlite · create-admin · hero:build · generate-art
 tests/                       Pruebas automáticas
 ```
 
@@ -409,7 +396,7 @@ tests/                       Pruebas automáticas
 ## Personalización
 
 - **Colores y tipografías:** variables al inicio de `public/css/main.css` (`--ink`, `--coral`, `--aqua`…). Fuentes: Bricolage Grotesque + DM Sans (Google Fonts), definidas en `src/views/partials/head.ejs`.
-- **Imagen principal (hero):** reemplazá `public/img/hero.svg` por tu foto (por ejemplo `hero.jpg`) y cambiá el nombre en `src/views/pages/home.ejs`. Imagen para compartir en redes: `public/img/og-default.jpg` (1200×630).
+- **Imagen principal (banner):** es un collage con las 6 mallas que se arma solo con las fotos principales de tus productos. Cuando cambies mallas o fotos, corré `npm run hero:build` y recargá la tienda. El fondo (atardecer) es `public/img/hero.svg`; si preferís una foto de playa, reemplazalo por tu foto con el mismo nombre de archivo o cambiá la ruta en `src/views/pages/home.ejs`. La imagen para compartir en redes (`public/img/og-default.jpg`) se genera en el mismo paso.
 - **Logo:** el ícono de ola está en `src/views/partials/icons.ejs` (`i-wave`) y el nombre en *Admin → Configuración* / `src/config.js`.
 - **Preguntas frecuentes:** `src/content/faq.js`.
 - **Métodos de entrega y pago, provincias:** `src/constants.js`.
@@ -424,9 +411,9 @@ tests/                       Pruebas automáticas
 npm test
 ```
 
-25 pruebas automáticas contra una base temporal: stock por talle, pedidos simultáneos por la última unidad, rechazo de talles agotados y cantidades inválidas,
+32 pruebas automáticas contra una base PostgreSQL temporal (en memoria): stock por talle, pedidos simultáneos por la última unidad, rechazo de talles agotados y cantidades inválidas,
 validación del checkout, mensaje y número de WhatsApp, cancelación/reactivación de pedidos, API del carrito, SEO, seguridad del panel (sin sesión, CSRF, login),
-alta/edición de productos, subida y borrado de imágenes, configuración.
+alta/edición de productos, subida y borrado de imágenes, configuración, almacenamiento en Supabase Storage (con un servidor simulado), límite de intentos compartido e importación desde SQLite.
 
 ---
 
@@ -439,3 +426,4 @@ alta/edición de productos, subida y borrado de imágenes, configuración.
 4. **Costo de envío:** hoy se coordina por WhatsApp (el pedido muestra "A coordinar"). Se puede agregar una tabla de tarifas por provincia.
 5. **Redes sociales:** cargá los enlaces en *Admin → Configuración* para que aparezcan los íconos.
 6. **Horario de atención** de la página de contacto: editalo en `src/views/pages/contact.ejs`.
+

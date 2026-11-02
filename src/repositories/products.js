@@ -1,5 +1,5 @@
 'use strict';
-const { getDb } = require('../db');
+const db = require('../db');
 const settings = require('./settings');
 const { slugify } = require('../utils/format');
 
@@ -8,7 +8,7 @@ const SORTS = {
   nuevos: 'p.created_at DESC, p.id DESC',
   'precio-asc': 'p.price ASC, p.id ASC',
   'precio-desc': 'p.price DESC, p.id DESC',
-  nombre: 'p.name COLLATE NOCASE ASC',
+  nombre: 'lower(p.name) ASC, p.id ASC',
 };
 
 const placeholders = (arr) => arr.map(() => '?').join(',');
@@ -23,20 +23,19 @@ function parseFeatures(json) {
 }
 
 /** Agrega imágenes, variantes (talle + stock) y flags de stock a un lote de filas de `products`. */
-function hydrate(rows) {
+async function hydrate(rows) {
   if (rows.length === 0) return [];
-  const db = getDb();
   const ids = rows.map((r) => r.id);
-  const images = db.prepare(
-    `SELECT id, product_id, url, alt, sort_order FROM product_images
-     WHERE product_id IN (${placeholders(ids)}) ORDER BY sort_order, id`
-  ).all(...ids);
-  const variants = db.prepare(
-    `SELECT v.id, v.product_id, v.size_id, s.name AS size, v.stock, v.sku
-     FROM product_variants v JOIN sizes s ON s.id = v.size_id
-     WHERE v.product_id IN (${placeholders(ids)}) ORDER BY s.sort_order, s.name`
-  ).all(...ids);
-  const threshold = settings.getInt('low_stock_threshold', 3);
+  const [images, variants, threshold] = await Promise.all([
+    db.all(
+      `SELECT id, product_id, url, alt, sort_order FROM product_images
+       WHERE product_id IN (${placeholders(ids)}) ORDER BY sort_order, id`, ids),
+    db.all(
+      `SELECT v.id, v.product_id, v.size_id, s.name AS size, v.stock, v.sku
+       FROM product_variants v JOIN sizes s ON s.id = v.size_id
+       WHERE v.product_id IN (${placeholders(ids)}) ORDER BY s.sort_order, s.name`, ids),
+    settings.getInt('low_stock_threshold', 3),
+  ]);
 
   const imgBy = new Map();
   const varBy = new Map();
@@ -63,6 +62,7 @@ function hydrate(rows) {
       categoryName: r.category_name || null,
       categorySlug: r.category_slug || null,
       createdAt: r.created_at,
+      updatedAt: r.updated_at,
       images: imgBy.get(r.id) || [],
       variants: vs,
       totalStock,
@@ -81,23 +81,24 @@ function escapeLike(s) {
 }
 
 /** Catálogo público (solo productos activos), con búsqueda, filtros y orden. */
-function listPublic({ q, sizes, colors, min, max, sort, category, inStock, featuredOnly, limit } = {}) {
+async function listPublic({ q, sizes, colors, min, max, sort, category, inStock, featuredOnly, limit } = {}) {
   const where = ['p.active = 1'];
   const params = [];
   if (q) {
-    where.push(`(p.name LIKE ? ESCAPE '\\' OR p.short_description LIKE ? ESCAPE '\\' OR p.description LIKE ? ESCAPE '\\' OR p.material LIKE ? ESCAPE '\\' OR p.color LIKE ? ESCAPE '\\')`);
+    where.push(`(p.name ILIKE ? ESCAPE '\\' OR p.short_description ILIKE ? ESCAPE '\\' OR p.description ILIKE ? ESCAPE '\\'
+                 OR p.material ILIKE ? ESCAPE '\\' OR p.color ILIKE ? ESCAPE '\\')`);
     const like = `%${escapeLike(q)}%`;
     params.push(like, like, like, like, like);
   }
   // Varios talles o colores significan "alguno de ellos". Un talle solo cuenta si tiene stock.
   if (sizes && sizes.length) {
     where.push(`EXISTS (SELECT 1 FROM product_variants v JOIN sizes s ON s.id = v.size_id
-                        WHERE v.product_id = p.id AND v.stock > 0 AND s.name COLLATE NOCASE IN (${placeholders(sizes)}))`);
-    params.push(...sizes);
+                        WHERE v.product_id = p.id AND v.stock > 0 AND lower(s.name) IN (${placeholders(sizes)}))`);
+    params.push(...sizes.map((s) => s.toLowerCase()));
   }
   if (colors && colors.length) {
-    where.push(`p.color COLLATE NOCASE IN (${placeholders(colors)})`);
-    params.push(...colors);
+    where.push(`lower(p.color) IN (${placeholders(colors)})`);
+    params.push(...colors.map((c) => c.toLowerCase()));
   }
   if (inStock) where.push('EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id AND v.stock > 0)');
   if (Number.isInteger(min)) { where.push('p.price >= ?'); params.push(min); }
@@ -106,168 +107,176 @@ function listPublic({ q, sizes, colors, min, max, sort, category, inStock, featu
   if (featuredOnly) where.push('p.featured = 1');
   const order = SORTS[sort] || SORTS.destacados;
   const limitSql = Number.isInteger(limit) ? `LIMIT ${limit}` : '';
-  const rows = getDb().prepare(`${BASE_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order} ${limitSql}`).all(...params);
+  const rows = await db.all(`${BASE_SELECT} WHERE ${where.join(' AND ')} ORDER BY ${order} ${limitSql}`, params);
   return hydrate(rows);
 }
 
 /** Opciones del filtro con su cantidad de productos: colores y talles (con stock) de productos activos. */
-function facets() {
-  const db = getDb();
-  const colors = db.prepare(`SELECT MIN(color) AS name, COUNT(*) AS count FROM products
-    WHERE active = 1 AND color != '' GROUP BY color COLLATE NOCASE ORDER BY count DESC, name`).all();
-  const sizes = db.prepare(`SELECT s.name AS name, COUNT(DISTINCT p.id) AS count FROM sizes s
-    JOIN product_variants v ON v.size_id = s.id AND v.stock > 0
-    JOIN products p ON p.id = v.product_id AND p.active = 1
-    GROUP BY s.id ORDER BY s.sort_order, s.name`).all();
+async function facets() {
+  const [colors, sizes] = await Promise.all([
+    db.all(`SELECT MIN(color) AS name, COUNT(*)::int AS count FROM products
+            WHERE active = 1 AND color != '' GROUP BY lower(color) ORDER BY count DESC, name`),
+    db.all(`SELECT s.name AS name, COUNT(DISTINCT p.id)::int AS count FROM sizes s
+            JOIN product_variants v ON v.size_id = s.id AND v.stock > 0
+            JOIN products p ON p.id = v.product_id AND p.active = 1
+            GROUP BY s.id ORDER BY s.sort_order, s.name`),
+  ]);
   return { colors, sizes };
 }
 
 /** Colores ya usados, para sugerirlos en el panel. */
-function allColors() {
-  return getDb().prepare("SELECT MIN(color) AS color FROM products WHERE color != '' GROUP BY color COLLATE NOCASE ORDER BY color COLLATE NOCASE")
-    .all().map((r) => r.color);
+async function allColors() {
+  const rows = await db.all("SELECT MIN(color) AS color FROM products WHERE color != '' GROUP BY lower(color) ORDER BY lower(MIN(color))");
+  return rows.map((r) => r.color);
 }
 
-function findBySlug(slug, { includeInactive = false } = {}) {
-  const row = getDb().prepare(`${BASE_SELECT} WHERE p.slug = ? ${includeInactive ? '' : 'AND p.active = 1'}`).get(slug);
-  return row ? hydrate([row])[0] : null;
+async function findBySlug(slug, { includeInactive = false } = {}) {
+  const row = await db.get(`${BASE_SELECT} WHERE p.slug = ? ${includeInactive ? '' : 'AND p.active = 1'}`, [slug]);
+  return row ? (await hydrate([row]))[0] : null;
 }
 
-function findById(id) {
-  const row = getDb().prepare(`${BASE_SELECT} WHERE p.id = ?`).get(id);
-  return row ? hydrate([row])[0] : null;
+async function findById(id) {
+  const row = await db.get(`${BASE_SELECT} WHERE p.id = ?`, [id]);
+  return row ? (await hydrate([row]))[0] : null;
 }
 
-function listAdmin() {
-  return hydrate(getDb().prepare(`${BASE_SELECT} ORDER BY p.created_at DESC, p.id DESC`).all());
+async function listAdmin() {
+  return hydrate(await db.all(`${BASE_SELECT} ORDER BY p.created_at DESC, p.id DESC`));
 }
 
-function related(product, limit = 4) {
-  const db = getDb();
-  let rows = db.prepare(
-    `${BASE_SELECT} WHERE p.active = 1 AND p.id != ? AND p.category_id IS ?
-     ORDER BY p.featured DESC, p.created_at DESC LIMIT ?`
-  ).all(product.id, product.categoryId, limit);
+async function related(product, limit = 4) {
+  let rows = await db.all(
+    `${BASE_SELECT} WHERE p.active = 1 AND p.id != ? AND p.category_id IS NOT DISTINCT FROM ?
+     ORDER BY p.featured DESC, p.created_at DESC LIMIT ?`,
+    [product.id, product.categoryId, limit]
+  );
   if (rows.length < limit) {
     const have = [product.id, ...rows.map((r) => r.id)];
-    const more = db.prepare(
+    const more = await db.all(
       `${BASE_SELECT} WHERE p.active = 1 AND p.id NOT IN (${placeholders(have)})
-       ORDER BY p.featured DESC, p.created_at DESC LIMIT ?`
-    ).all(...have, limit - rows.length);
+       ORDER BY p.featured DESC, p.created_at DESC LIMIT ?`,
+      [...have, limit - rows.length]
+    );
     rows = rows.concat(more);
   }
   return hydrate(rows);
 }
 
-function uniqueSlug(name, ignoreId = null) {
-  const db = getDb();
+async function uniqueSlug(name, ignoreId = null) {
   const base = slugify(name) || 'producto';
   let slug = base;
   let n = 2;
-  while (db.prepare('SELECT id FROM products WHERE slug = ? AND id IS NOT ?').get(slug, ignoreId)) {
+  // id IS DISTINCT FROM NULL es verdadero para toda fila: sin id a ignorar se compara contra todos
+  while (await db.get('SELECT id FROM products WHERE slug = ? AND id IS DISTINCT FROM ?', [slug, ignoreId])) {
     slug = `${base}-${n++}`;
   }
   return slug;
 }
 
 /** Crea o actualiza un producto (campos de la tabla `products`, sin imágenes ni variantes). */
-function save(data, id = null) {
-  const db = getDb();
+async function save(data, id = null) {
   const features = JSON.stringify(data.features || []);
   if (id) {
-    const slug = data.slug ? uniqueSlug(data.slug, id) : uniqueSlug(data.name, id);
-    db.prepare(`UPDATE products SET category_id=?, slug=?, name=?, short_description=?, description=?, material=?, color=?,
-                features=?, price=?, compare_at_price=?, active=?, featured=?, updated_at=datetime('now') WHERE id=?`)
-      .run(data.categoryId, slug, data.name, data.shortDescription, data.description, data.material, data.color || '',
-        features, data.price, data.comparePrice, data.active ? 1 : 0, data.featured ? 1 : 0, id);
+    const slug = await uniqueSlug(data.slug || data.name, id);
+    await db.run(
+      `UPDATE products SET category_id=?, slug=?, name=?, short_description=?, description=?, material=?, color=?,
+              features=?, price=?, compare_at_price=?, active=?, featured=?, updated_at=now() WHERE id=?`,
+      [data.categoryId, slug, data.name, data.shortDescription, data.description, data.material, data.color || '',
+        features, data.price, data.comparePrice, data.active ? 1 : 0, data.featured ? 1 : 0, id]
+    );
     return id;
   }
-  const slug = uniqueSlug(data.slug || data.name);
-  const info = db.prepare(`INSERT INTO products (category_id, slug, name, short_description, description, material, color,
-                features, price, compare_at_price, active, featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(data.categoryId, slug, data.name, data.shortDescription, data.description, data.material, data.color || '',
-      features, data.price, data.comparePrice, data.active ? 1 : 0, data.featured ? 1 : 0);
-  return Number(info.lastInsertRowid);
+  const slug = await uniqueSlug(data.slug || data.name);
+  const row = await db.get(
+    `INSERT INTO products (category_id, slug, name, short_description, description, material, color,
+            features, price, compare_at_price, active, featured) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) RETURNING id`,
+    [data.categoryId, slug, data.name, data.shortDescription, data.description, data.material, data.color || '',
+      features, data.price, data.comparePrice, data.active ? 1 : 0, data.featured ? 1 : 0]
+  );
+  return row.id;
 }
 
-function remove(id) {
-  const images = getDb().prepare('SELECT url FROM product_images WHERE product_id = ?').all(id);
-  getDb().prepare('DELETE FROM products WHERE id = ?').run(id);
+/** Borra el producto y devuelve las URLs de sus imágenes (para eliminar los archivos). */
+async function remove(id) {
+  const images = await db.all('SELECT url FROM product_images WHERE product_id = ?', [id]);
+  await db.run('DELETE FROM products WHERE id = ?', [id]);
   return images.map((i) => i.url);
 }
 
-function setFlag(id, field, value) {
+async function setFlag(id, field, value) {
   if (!['active', 'featured'].includes(field)) throw new Error('Campo inválido');
-  getDb().prepare(`UPDATE products SET ${field} = ?, updated_at = datetime('now') WHERE id = ?`).run(value ? 1 : 0, id);
+  await db.run(`UPDATE products SET ${field} = ?, updated_at = now() WHERE id = ?`, [value ? 1 : 0, id]);
 }
 
 /**
  * Define los talles ofrecidos y su stock. `entries` = [{ sizeId, stock }].
  * Los talles que no estén en la lista se quitan del producto.
  */
-function setVariants(productId, entries) {
-  const db = getDb();
-  db.transaction(() => {
+async function setVariants(productId, entries) {
+  await db.tx(async (t) => {
     const keep = entries.map((e) => e.sizeId);
-    const existing = db.prepare('SELECT id, size_id FROM product_variants WHERE product_id = ?').all(productId);
+    const existing = await t.all('SELECT id, size_id FROM product_variants WHERE product_id = ?', [productId]);
     for (const row of existing) {
-      if (!keep.includes(row.size_id)) db.prepare('DELETE FROM product_variants WHERE id = ?').run(row.id);
+      if (!keep.includes(row.size_id)) await t.run('DELETE FROM product_variants WHERE id = ?', [row.id]);
     }
-    const upsert = db.prepare(`INSERT INTO product_variants (product_id, size_id, stock) VALUES (?, ?, ?)
-      ON CONFLICT(product_id, size_id) DO UPDATE SET stock = excluded.stock`);
-    for (const e of entries) upsert.run(productId, e.sizeId, e.stock);
-  })();
+    for (const e of entries) {
+      await t.run(
+        `INSERT INTO product_variants (product_id, size_id, stock) VALUES (?, ?, ?)
+         ON CONFLICT (product_id, size_id) DO UPDATE SET stock = EXCLUDED.stock`,
+        [productId, e.sizeId, e.stock]
+      );
+    }
+  });
 }
 
-function updateVariantStock(variantId, stock) {
-  return getDb().prepare('UPDATE product_variants SET stock = ? WHERE id = ?').run(stock, variantId).changes;
+async function updateVariantStock(variantId, stock) {
+  return (await db.run('UPDATE product_variants SET stock = ? WHERE id = ?', [stock, variantId])).changes;
 }
 
-function addImage(productId, url, alt = '') {
-  const db = getDb();
-  const next = db.prepare('SELECT COALESCE(MAX(sort_order), -1) + 1 AS n FROM product_images WHERE product_id = ?').get(productId).n;
-  return Number(db.prepare('INSERT INTO product_images (product_id, url, alt, sort_order) VALUES (?, ?, ?, ?)')
-    .run(productId, url, alt, next).lastInsertRowid);
+async function addImage(productId, url, alt = '') {
+  const row = await db.get(
+    `INSERT INTO product_images (product_id, url, alt, sort_order)
+     VALUES (?, ?, ?, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM product_images WHERE product_id = ?))
+     RETURNING id`,
+    [productId, url, alt, productId]
+  );
+  return row.id;
 }
 
-function updateImage(imageId, productId, { alt, sortOrder }) {
-  getDb().prepare('UPDATE product_images SET alt = ?, sort_order = ? WHERE id = ? AND product_id = ?')
-    .run(alt, sortOrder, imageId, productId);
+async function updateImage(imageId, productId, { alt, sortOrder }) {
+  await db.run('UPDATE product_images SET alt = ?, sort_order = ? WHERE id = ? AND product_id = ?',
+    [alt, sortOrder, imageId, productId]);
 }
 
-function removeImage(imageId, productId) {
-  const db = getDb();
-  const row = db.prepare('SELECT url FROM product_images WHERE id = ? AND product_id = ?').get(imageId, productId);
+async function removeImage(imageId, productId) {
+  const row = await db.get('SELECT url FROM product_images WHERE id = ? AND product_id = ?', [imageId, productId]);
   if (!row) return null;
-  db.prepare('DELETE FROM product_images WHERE id = ?').run(imageId);
+  await db.run('DELETE FROM product_images WHERE id = ?', [imageId]);
   return row.url;
 }
 
-function countImages(productId) {
-  return getDb().prepare('SELECT COUNT(*) c FROM product_images WHERE product_id = ?').get(productId).c;
+async function countImages(productId) {
+  return (await db.get('SELECT COUNT(*)::int AS c FROM product_images WHERE product_id = ?', [productId])).c;
 }
 
-/** Variantes con poco stock (> 0 y <= umbral) de productos activos, o agotadas. */
-function lowStockVariants() {
-  const threshold = settings.getInt('low_stock_threshold', 3);
-  return getDb().prepare(`
+/** Variantes agotadas o con poco stock (<= umbral). */
+async function lowStockVariants() {
+  const threshold = await settings.getInt('low_stock_threshold', 3);
+  return db.all(`
     SELECT v.id AS variant_id, v.stock, s.name AS size, p.id AS product_id, p.name AS product_name, p.active
     FROM product_variants v
     JOIN products p ON p.id = v.product_id
     JOIN sizes s ON s.id = v.size_id
-    WHERE v.stock <= ? ORDER BY v.stock ASC, p.name, s.sort_order`).all(threshold);
+    WHERE v.stock <= ? ORDER BY v.stock ASC, p.name, s.sort_order`, [threshold]);
 }
 
-function countAll() {
-  const db = getDb();
-  return {
-    total: db.prepare('SELECT COUNT(*) c FROM products').get().c,
-    active: db.prepare('SELECT COUNT(*) c FROM products WHERE active = 1').get().c,
-  };
+async function countAll() {
+  const row = await db.get('SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE active = 1)::int AS active FROM products');
+  return { total: row.total, active: row.active };
 }
 
 function allForSitemap() {
-  return getDb().prepare('SELECT slug, updated_at FROM products WHERE active = 1 ORDER BY id').all();
+  return db.all('SELECT slug, updated_at FROM products WHERE active = 1 ORDER BY id');
 }
 
 module.exports = {

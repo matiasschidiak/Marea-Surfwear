@@ -44,7 +44,7 @@ async function getCsrf(path = '/admin/productos/nuevo') {
 
 before(async () => {
   t = await startTestServer();
-  t.auth.admins.create({ email: 'dueno@marea.test', name: 'Dueño', password: PASSWORD });
+  await t.auth.admins.create({ email: 'dueno@marea.test', name: 'Dueño', password: PASSWORD });
 });
 after(async () => { await t.close(); });
 
@@ -78,7 +78,7 @@ test('login: rechaza credenciales incorrectas y token inválido; acepta las corr
 });
 
 test('la contraseña se guarda hasheada (scrypt) y la cookie es httpOnly', async () => {
-  const row = t.db.prepare('SELECT password_hash FROM admins').get();
+  const row = await t.db.get('SELECT password_hash FROM admins', []);
   assert.match(row.password_hash, /^scrypt\$[0-9a-f]+\$[0-9a-f]+$/);
   assert.ok(!row.password_hash.includes(PASSWORD));
   cookie = '';
@@ -101,22 +101,24 @@ test('las acciones del panel exigen token CSRF', async () => {
 test('crear producto con talles, stock y editarlo desde el panel', async () => {
   await login();
   await getCsrf();
-  const sizeId = (n) => t.sizes.findByName(n).id;
+  const ids = {};
+  for (const n of ['S', 'M', 'XXL']) ids[n] = (await t.sizes.findByName(n)).id;
+  const sizeId = (n) => ids[n];
   const body = form({
     _csrf: csrf, name: 'Malla Panel Test', shortDescription: 'Corta', description: 'Larga', material: '100% poliéster',
-    features: 'Uno\nDos\n\nTres', price: '52000', comparePrice: '60000', categoryId: String(t.categories.list()[0].id), active: '1', featured: '1',
+    features: 'Uno\nDos\n\nTres', price: '52000', comparePrice: '60000', categoryId: String((await t.categories.list())[0].id), active: '1', featured: '1',
     [`offer_${sizeId('S')}`]: '1', [`stock_${sizeId('S')}`]: '4', [`offer_${sizeId('M')}`]: '1', [`stock_${sizeId('M')}`]: '0',
     newSizes: 'XXL',
   });
   const res = await call('/admin/productos', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body });
   // El formulario normal es multipart, pero urlencoded también debe aceptarse y validarse igual
   assert.equal(res.status, 302, await res.text());
-  const created = t.db.prepare("SELECT * FROM products WHERE name = 'Malla Panel Test'").get();
+  const created = await t.db.get("SELECT * FROM products WHERE name = 'Malla Panel Test'", []);
   assert.ok(created);
   assert.equal(created.price, 52000);
   assert.deepEqual(JSON.parse(created.features), ['Uno', 'Dos', 'Tres']);
   assert.equal(created.featured, 1);
-  const p = t.products.findById(created.id);
+  const p = await t.products.findById(created.id);
   assert.deepEqual(p.variants.map((v) => [v.size, v.stock]), [['S', 4], ['M', 0], ['XXL', 0]]);
 
   // Aparece en la tienda
@@ -131,7 +133,7 @@ test('crear producto con talles, stock y editarlo desde el panel', async () => {
   });
   const res2 = await call(`/admin/productos/${created.id}`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: edit });
   assert.equal(res2.status, 302);
-  const p2 = t.products.findById(created.id);
+  const p2 = await t.products.findById(created.id);
   assert.equal(p2.price, 55000);
   assert.deepEqual(p2.variants.map((v) => [v.size, v.stock]), [['S', 9], ['XXL', 2]]);
   assert.equal(p2.featured, false);
@@ -145,7 +147,7 @@ test('el panel valida los datos del producto', async () => {
   const html = await res.text();
   assert.match(html, /Ingresá el nombre/);
   assert.match(html, /precio válido/);
-  const sizeId = t.sizes.findByName('S').id;
+  const sizeId = (await t.sizes.findByName('S')).id;
   const res2 = await call('/admin/productos', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: form({ _csrf: csrf, name: 'Con stock malo', price: '1000', [`offer_${sizeId}`]: '1', [`stock_${sizeId}`]: '-3' }) });
   assert.equal(res2.status, 422);
@@ -153,19 +155,19 @@ test('el panel valida los datos del producto', async () => {
 
 test('stock rápido, activar/desactivar y destacar', async () => {
   await login();
-  const p = t.addProduct('Malla Stock Rápido', 10000, { S: 1, M: 1 });
+  const p = await t.addProduct('Malla Stock Rápido', 10000, { S: 1, M: 1 });
   await getCsrf('/admin/stock');
   let res = await call('/admin/stock', { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: form({ _csrf: csrf, [`stock_${t.variantId(p, 'S')}`]: '12', [`stock_${t.variantId(p, 'M')}`]: 'abc' }) });
   assert.equal(res.status, 302);
-  assert.equal(t.stockOf(t.variantId(p, 'S')), 12);
-  assert.equal(t.stockOf(t.variantId(p, 'M')), 1, 'valores inválidos se ignoran');
+  assert.equal(await t.stockOf(t.variantId(p, 'S')), 12);
+  assert.equal(await t.stockOf(t.variantId(p, 'M')), 1, 'valores inválidos se ignoran');
 
   res = await call(`/admin/productos/${p.id}/toggle`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ _csrf: csrf, field: 'active', value: '0' }) });
   assert.equal(res.status, 302);
   assert.equal((await fetch(`${t.base}/producto/${p.slug}`)).status, 404);
   await call(`/admin/productos/${p.id}/toggle`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ _csrf: csrf, field: 'featured', value: '1' }) });
-  assert.equal(t.products.findById(p.id).featured, true);
+  assert.equal((await t.products.findById(p.id)).featured, true);
   // campo no permitido
   res = await call(`/admin/productos/${p.id}/toggle`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ _csrf: csrf, field: 'price', value: '0' }) });
   assert.equal(res.status, 404);
@@ -173,11 +175,11 @@ test('stock rápido, activar/desactivar y destacar', async () => {
 
 test('pedidos: se ven en el panel y se puede cambiar el estado (cancelar devuelve stock)', async () => {
   await login();
-  const p = t.addProduct('Malla Pedido Panel', 25000, { M: 5 });
+  const p = await t.addProduct('Malla Pedido Panel', 25000, { M: 5 });
   const v = t.variantId(p, 'M');
   const order = await t.post('/api/orders', { ...validCustomer({ firstName: 'Lucía', notes: 'Portón negro' }), items: [{ variantId: v, qty: 2 }] });
-  assert.equal(t.stockOf(v), 3);
-  const id = t.db.prepare('SELECT id FROM orders WHERE code = ?').get(order.json.code).id;
+  assert.equal(await t.stockOf(v), 3);
+  const id = (await t.db.get('SELECT id FROM orders WHERE code = ?', [order.json.code])).id;
 
   const list = await (await call('/admin/pedidos')).text();
   assert.match(list, new RegExp(order.json.code));
@@ -190,12 +192,12 @@ test('pedidos: se ven en el panel y se puede cambiar el estado (cancelar devuelv
   await getCsrf(`/admin/pedidos/${id}`);
   const post = (status) => call(`/admin/pedidos/${id}/estado`, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: form({ _csrf: csrf, status }) });
   assert.equal((await post('preparando')).status, 302);
-  assert.equal(t.db.prepare('SELECT status FROM orders WHERE id = ?').get(id).status, 'preparando');
+  assert.equal((await t.db.get('SELECT status FROM orders WHERE id = ?', [id])).status, 'preparando');
   assert.equal((await post('cancelado')).status, 302);
-  assert.equal(t.stockOf(v), 5);
-  assert.equal(t.db.prepare('SELECT COUNT(*) c FROM order_status_history WHERE order_id = ?').get(id).c, 3);
+  assert.equal(await t.stockOf(v), 5);
+  assert.equal((await t.db.get('SELECT COUNT(*) c FROM order_status_history WHERE order_id = ?', [id])).c, 3);
   await post('estado-inventado');
-  assert.equal(t.db.prepare('SELECT status FROM orders WHERE id = ?').get(id).status, 'cancelado');
+  assert.equal((await t.db.get('SELECT status FROM orders WHERE id = ?', [id])).status, 'cancelado');
 });
 
 test('configuración: el número de WhatsApp se valida y se usa en los pedidos', async () => {
@@ -240,8 +242,8 @@ test('subida de imágenes: se optimizan a WebP en varios tamaños y se rechazan 
   const res = await call('/admin/productos', { method: 'POST', body: fd });
   assert.equal(res.status, 302, await res.text());
 
-  const product = t.db.prepare("SELECT id, slug FROM products WHERE name = 'Malla Con Fotos'").get();
-  const imgs = t.db.prepare('SELECT url FROM product_images WHERE product_id = ?').all(product.id);
+  const product = await t.db.get("SELECT id, slug FROM products WHERE name = 'Malla Con Fotos'", []);
+  const imgs = await t.db.all('SELECT url FROM product_images WHERE product_id = ?', [product.id]);
   assert.equal(imgs.length, 1, 'solo la imagen válida se guarda');
   assert.match(imgs[0].url, /^\/uploads\/[a-f0-9]{20}-1400\.webp$/);
 
@@ -262,5 +264,5 @@ test('subida de imágenes: se optimizan a WebP en varios tamaños y se rechazan 
   assert.equal(del.status, 302);
   await new Promise((r) => setTimeout(r, 300));
   assert.ok(!fs.existsSync(`${dir}/${base}-1400.webp`));
-  assert.equal(t.db.prepare('SELECT COUNT(*) c FROM product_images WHERE product_id = ?').get(product.id).c, 0);
+  assert.equal((await t.db.get('SELECT COUNT(*) c FROM product_images WHERE product_id = ?', [product.id])).c, 0);
 });

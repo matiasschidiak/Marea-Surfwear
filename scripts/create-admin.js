@@ -8,7 +8,8 @@
  * La contraseña se guarda con scrypt (nunca en texto plano).
  */
 const readline = require('readline');
-const { getDb, closeDb } = require('../src/db');
+const db = require('../src/db');
+const { ensureReady } = require('../src/bootstrap');
 const auth = require('../src/services/auth');
 
 function ask(question, { hidden = false } = {}) {
@@ -26,7 +27,7 @@ function ask(question, { hidden = false } = {}) {
 }
 
 (async () => {
-  getDb();
+  await ensureReady();
   let [email, password] = process.argv.slice(2);
   if (!email) email = await ask('Email del administrador: ');
   if (!password) password = await ask('Contraseña (mínimo 10 caracteres, con letras y números): ', { hidden: true });
@@ -41,13 +42,13 @@ function ask(question, { hidden = false } = {}) {
     process.exit(1);
   }
 
-  const existing = auth.admins.findByEmail(email);
+  const existing = await auth.admins.findByEmail(email);
   if (existing) {
-    auth.admins.setPassword(existing.id, password);
+    await auth.admins.setPassword(existing.id, password);
     console.log(`Se actualizó la contraseña de ${existing.email}.`);
   } else {
-    auth.admins.create({ email, name: 'Administrador', password });
+    await auth.admins.create({ email, name: 'Administrador', password });
     console.log(`Administrador creado: ${email.toLowerCase()}`);
   }
-  closeDb();
-})();
+  await db.close();
+})().catch((err) => { console.error('Error:', err.message); process.exit(1); });

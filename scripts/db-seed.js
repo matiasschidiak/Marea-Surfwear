@@ -8,15 +8,11 @@
  *  node scripts/db-seed.js            -> categoría, talles y demo (si no hay productos)
  *  node scripts/db-seed.js --no-demo  -> solo categoría y talles
  */
-const { getDb, closeDb } = require('../src/db');
+const db = require('../src/db');
 const products = require('../src/repositories/products');
 const { categories, sizes } = require('../src/repositories/catalog-lookups');
 
 const withDemo = !process.argv.includes('--no-demo');
-const db = getDb();
-
-const mallas = categories.findOrCreate('Mallas');
-for (const s of ['XS', 'S', 'M', 'L', 'XL', 'XXL']) sizes.findOrCreate(s);
 
 const DEMO = [
   {
@@ -69,21 +65,32 @@ const DEMO = [
   },
 ];
 
-if (withDemo && products.countAll().total === 0) {
-  DEMO.forEach((d, idx) => {
-    const id = products.save({
-      slug: d.slug, name: d.name, shortDescription: d.short, description: d.desc, material: d.material, color: d.color,
-      features: d.features, price: d.price, comparePrice: null, categoryId: mallas.id, active: true, featured: d.featured,
-    });
-    // Los más nuevos primero: se escalonan las fechas de alta
-    db.prepare("UPDATE products SET created_at = datetime('now', ?) WHERE id = ?").run(`-${idx} minutes`, id);
-    products.setVariants(id, Object.entries(d.stock).map(([name, stock]) => ({ sizeId: sizes.findByName(name).id, stock })));
-    const alts = ['vista frontal', 'vista trasera', 'detalle de la estampa'];
-    [1, 2, 3].forEach((n, i) => products.addImage(id, `/img/products/${d.slug}-${n}.svg`, `${d.name} - ${alts[i]}`));
-  });
-  console.log(`Se cargaron ${DEMO.length} productos de demostración.`);
-} else if (withDemo) {
-  console.log('La tienda ya tiene productos: no se cargó la demostración.');
-}
-console.log('Categoría y talles listos.');
-closeDb();
+(async () => {
+  await db.init();
+  const mallas = await categories.findOrCreate('Mallas');
+  for (const s of ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'ÚNICO']) await sizes.findOrCreate(s);
+
+  const { total } = await products.countAll();
+  if (withDemo && total === 0) {
+    for (const [idx, d] of DEMO.entries()) {
+      const id = await products.save({
+        slug: d.slug, name: d.name, shortDescription: d.short, description: d.desc, material: d.material, color: d.color,
+        features: d.features, price: d.price, comparePrice: null, categoryId: mallas.id, active: true, featured: d.featured,
+      });
+      // Los más nuevos primero: se escalonan las fechas de alta
+      await db.run("UPDATE products SET created_at = now() - (? * interval '1 minute') WHERE id = ?", [idx, id]);
+      const variants = [];
+      for (const [name, stock] of Object.entries(d.stock)) variants.push({ sizeId: (await sizes.findByName(name)).id, stock });
+      await products.setVariants(id, variants);
+      const alts = ['vista frontal', 'vista trasera', 'detalle de la estampa'];
+      for (const [i, n] of [1, 2, 3].entries()) {
+        await products.addImage(id, `/img/products/${d.slug}-${n}.svg`, `${d.name} - ${alts[i]}`);
+      }
+    }
+    console.log(`Se cargaron ${DEMO.length} productos de demostración.`);
+  } else if (withDemo) {
+    console.log('La tienda ya tiene productos: no se cargó la demostración.');
+  }
+  console.log('Categoría y talles listos.');
+  await db.close();
+})().catch((err) => { console.error('Error:', err.message); process.exit(1); });
